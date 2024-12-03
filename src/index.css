@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Styles globaux */
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+/* Styles pour MUI */
+.MuiButton-root {
+  text-transform: none !important;
+}
+
+/* Styles personnalisés */
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Styles pour le calendrier */
+.MuiPickersPopper-root {
+  z-index: 9999;
+}
+
+/* Styles Cyberpunk */
+.cyberpunk-bg {
+  background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.cyberpunk-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    linear-gradient(45deg, rgba(0, 255, 255, 0.1) 0%, transparent 100%),
+    repeating-linear-gradient(
+      45deg,
+      transparent 0,
+      transparent 10px,
+      rgba(0, 255, 255, 0.05) 10px,
+      rgba(0, 255, 255, 0.05) 20px
+    );
+  pointer-events: none;
+}
+
+.neon-card {
+  background: rgba(13, 13, 13, 0.95);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  box-shadow: 
+    0 0 10px rgba(0, 255, 255, 0.2),
+    inset 0 0 15px rgba(0, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.neon-text {
+  color: #00ffff;
+  text-shadow: 
+    0 0 5px rgba(0, 255, 255, 0.5),
+    0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+.neon-input {
+  transition: all 0.3s ease;
+}
+
+.neon-input:focus {
+  outline: none;
+  box-shadow: 
+    0 0 0 2px rgba(0, 255, 255, 0.2),
+    0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+.neon-button {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.neon-button:hover {
+  box-shadow: 
+    0 0 15px rgba(0, 255, 255, 0.3),
+    0 0 30px rgba(0, 255, 255, 0.2);
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+}
+
+.neon-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.neon-button:hover::before {
+  opacity: 1;
+}

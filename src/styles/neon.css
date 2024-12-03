@@ -1,0 +1,285 @@
+@keyframes neon-glow {
+  0% {
+    text-shadow: 0 0 10px #fff,
+                 0 0 20px #fff,
+                 0 0 30px #0ff,
+                 0 0 40px #0ff,
+                 0 0 50px #0ff;
+  }
+  100% {
+    text-shadow: 0 0 5px #fff,
+                 0 0 10px #fff,
+                 0 0 15px #0ff,
+                 0 0 20px #0ff,
+                 0 0 25px #0ff;
+  }
+}
+
+@keyframes neon-pulse {
+  0% {
+    box-shadow: 0 0 5px #fff,
+                0 0 10px #fff,
+                0 0 15px #0ff,
+                0 0 20px #0ff;
+  }
+  100% {
+    box-shadow: 0 0 2px #fff,
+                0 0 5px #fff,
+                0 0 7px #0ff,
+                0 0 10px #0ff;
+  }
+}
+
+.neon-text {
+  color: #fff;
+  animation: neon-glow 1.5s ease-in-out infinite alternate;
+}
+
+.neon-button {
+  background: rgba(0, 0, 0, 0.8);
+  color: #0ff;
+  border: 1px solid #0ff;
+  transition: all 0.3s ease;
+  animation: neon-pulse 1.5s ease-in-out infinite alternate;
+}
+
+.neon-button:hover {
+  background: rgba(0, 255, 255, 0.1);
+  color: #fff;
+  box-shadow: 0 0 10px #0ff,
+              0 0 20px #0ff,
+              0 0 30px #0ff;
+}
+
+.neon-input {
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid #0ff;
+  color: #fff;
+  transition: all 0.3s ease;
+}
+
+.neon-input:focus {
+  box-shadow: 0 0 10px #0ff;
+  border-color: #fff;
+  outline: none;
+}
+
+.neon-card {
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid #0ff;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.cyberpunk-bg {
+  background: linear-gradient(45deg, #000428, #004e92);
+  min-height: 100vh;
+}
+
+.schedule-mat1 {
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid #3b82f6;
+  box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+}
+
+.schedule-mat2 {
+  background: rgba(59, 130, 246, 0.3);
+  border: 1px solid #60a5fa;
+  box-shadow: 0 0 5px rgba(96, 165, 250, 0.5);
+}
+
+.schedule-am1 {
+  background: rgba(234, 179, 8, 0.2);
+  border: 1px solid #eab308;
+  box-shadow: 0 0 5px rgba(234, 179, 8, 0.5);
+}
+
+.schedule-am2 {
+  background: rgba(234, 179, 8, 0.3);
+  border: 1px solid #facc15;
+  box-shadow: 0 0 5px rgba(250, 204, 21, 0.5);
+}
+
+.schedule-remplacant {
+  background: rgba(34, 197, 94, 0.2);
+  border: 1px solid #22c55e;
+  box-shadow: 0 0 5px rgba(34, 197, 94, 0.5);
+}
+
+.schedule-recuperation {
+  background: rgba(249, 115, 22, 0.2);
+  border: 1px solid #f97316;
+  box-shadow: 0 0 5px rgba(249, 115, 22, 0.5);
+}
+
+.schedule-conge {
+  background: rgba(244, 63, 94, 0.2);
+  border: 1px solid #f43f5e;
+  box-shadow: 0 0 5px rgba(244, 63, 94, 0.5);
+}
+
+.schedule-cell {
+  transition: all 0.3s ease;
+  margin: 4px;
+  padding: 8px;
+  border-radius: 4px;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+}
+
+.schedule-cell:hover {
+  box-shadow: 0 0 10px currentColor;
+  transform: translateY(-1px);
+}
+
+.schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .schedule-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.schedule-day {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Styles spécifiques pour le DatePicker */
+.MuiPickersPopper-root .MuiPaper-root {
+  background: rgba(0, 0, 0, 0.95) !important;
+  border: 1px solid #0ff !important;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.2) !important;
+}
+
+.MuiPickersCalendarHeader-root {
+  padding: 16px 8px !important;
+  background: rgba(0, 255, 255, 0.05) !important;
+}
+
+.MuiPickersCalendarHeader-label {
+  color: #0ff !important;
+  font-size: 1.2rem !important;
+  text-transform: capitalize !important;
+  font-weight: bold !important;
+  text-shadow: 0 0 10px #0ff !important;
+}
+
+.MuiPickersArrowSwitcher-button {
+  color: #0ff !important;
+  border: 1px solid #0ff !important;
+  margin: 0 4px !important;
+}
+
+.MuiPickersArrowSwitcher-button:hover {
+  background: rgba(0, 255, 255, 0.1) !important;
+}
+
+.MuiYearCalendar-root {
+  background: rgba(0, 0, 0, 0.95) !important;
+}
+
+.MuiPickersYear-root {
+  color: #fff !important;
+  font-size: 1rem !important;
+  margin: 4px !important;
+}
+
+.MuiPickersYear-yearButton {
+  color: #fff !important;
+  font-weight: 500 !important;
+  border: 1px solid transparent !important;
+  padding: 8px 16px !important;
+}
+
+.MuiPickersYear-yearButton:hover {
+  background: rgba(0, 255, 255, 0.2) !important;
+  border-color: #0ff !important;
+}
+
+.MuiPickersYear-yearButton.Mui-selected {
+  background: rgba(0, 255, 255, 0.3) !important;
+  border: 1px solid #0ff !important;
+  color: #0ff !important;
+  text-shadow: 0 0 8px #0ff !important;
+  font-weight: bold !important;
+}
+
+.MuiDayCalendar-header {
+  background: rgba(0, 255, 255, 0.1) !important;
+  border-bottom: 1px solid #0ff !important;
+}
+
+.MuiDayCalendar-weekDayLabel {
+  color: #0ff !important;
+  font-weight: bold !important;
+}
+
+.MuiPickersDay-root {
+  color: #fff !important;
+  font-weight: 500 !important;
+  border: 1px solid transparent !important;
+}
+
+.MuiPickersDay-root:hover {
+  background: rgba(0, 255, 255, 0.2) !important;
+  border: 1px solid #0ff !important;
+}
+
+.MuiPickersDay-root.Mui-selected {
+  background: rgba(0, 255, 255, 0.3) !important;
+  border: 1px solid #0ff !important;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.5) !important;
+}
+
+.MuiPickersDay-today {
+  border: 2px solid #0ff !important;
+  color: #0ff !important;
+}
+
+/* Style du champ de date */
+.date-picker-field .MuiInputBase-root {
+  background: rgba(0, 0, 0, 0.7) !important;
+  border: 1px solid #0ff !important;
+  transition: all 0.3s ease !important;
+}
+
+.date-picker-field .MuiInputBase-root:hover {
+  border-color: #fff !important;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3) !important;
+}
+
+.date-picker-field .MuiInputBase-input {
+  color: #fff !important;
+  font-weight: 500 !important;
+}
+
+.date-picker-field .MuiIconButton-root {
+  color: #0ff !important;
+}
+
+.date-picker-field .MuiIconButton-root:hover {
+  background: rgba(0, 255, 255, 0.1) !important;
+}
+
+.neon-button-danger {
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid #ff0000;
+  color: #ff0000;
+  transition: all 0.3s ease;
+}
+
+.neon-button-danger:hover {
+  background: rgba(255, 0, 0, 0.2);
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+  text-shadow: 0 0 5px #ff0000;
+}
