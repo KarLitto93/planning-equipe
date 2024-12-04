@@ -10,8 +10,8 @@ export const AdminDashboard: React.FC = () => {
     loadUsers();
   }, []);
 
-  const loadUsers = () => {
-    const allUsers = AuthService.getAllUsers();
+  const loadUsers = async () => {
+    const allUsers = await AuthService.getAllUsers();
     setUsers(allUsers);
   };
 
@@ -28,7 +28,7 @@ export const AdminDashboard: React.FC = () => {
     <div className="p-6">
       <h2 className="neon-text text-2xl font-bold mb-6">Gestion des Utilisateurs</h2>
       <div className="grid gap-4">
-        {users.map((user) => (
+        {users?.map((user) => (
           <div key={user.username} className="neon-card p-4 rounded-lg flex justify-between items-center">
             <div>
               <span className="neon-text font-medium">{user.username}</span>

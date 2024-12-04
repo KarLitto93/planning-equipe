@@ -1,6 +1,25 @@
 import { secureStorage } from './secureStorage';
 import { SessionManager } from './sessionManager';
 import { UserInfo } from '../types';
+import { 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+} from 'firebase/auth';
+import { auth } from '../firebase';
+import { FirestoreService } from './firestoreService';
+import { Firestore } from '@firebase/firestore';
+import { collection, getDocs, doc, getDoc, setDoc, updateDoc, query, where } from 'firebase/firestore';
+import { db } from '../firebase';
+
+interface FirestoreUserData {
+  username: string;
+  role: 'admin' | 'user';
+  status: 'pending' | 'active' | 'rejected';
+  lastPasswordChange: number;
+  createdAt: number;
+}
 
 interface User {
   username: string;
@@ -46,9 +65,10 @@ export class AuthService {
   private static readonly CURRENT_USER_KEY = 'planning_current_user';
   private static readonly PASSWORD_EXPIRY_DAYS = 90;
   private static readonly PENDING_NOTIFICATIONS_KEY = 'planning_pending_notifications';
-
-  static initialize() {
+  
+  static async initialize() {
     console.log('Initializing AuthService...');
+    await this.migrateDefaultUsers();
     // Initialiser les utilisateurs par défaut s'ils n'existent pas
     const existingUsers = secureStorage.getItem(this.USERS_KEY);
     console.log('Existing users:', existingUsers);
@@ -74,38 +94,52 @@ export class AuthService {
 
   static async register(username: string, password: string, role: 'admin' | 'user'): Promise<boolean> {
     try {
-      // Vérifier si l'utilisateur existe déjà
-      const users: User[] = JSON.parse(secureStorage.getItem(this.USERS_KEY) || '[]');
-      if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
-        return false;
-      }
+        // Vérifier si l'utilisateur existe dans Firestore
+        const existingUser = await FirestoreService.getUser(username);
+        if (existingUser) {
+            return false;
+        }
 
-      // Hash le mot de passe
-      const hashedPassword = await this.hashPassword(password);
-      
-      // Créer le nouvel utilisateur
-      const newUser: User = {
-        username,
-        password: hashedPassword,
-        role,
-        lastPasswordChange: Date.now(),
-        status: 'pending',
-        createdAt: Date.now()
-      };
+        // Créer l'utilisateur dans Firebase Auth
+        const email = `${username}@planning-equipe.com`;
+        await createUserWithEmailAndPassword(auth, email, password);
 
-      // Ajouter l'utilisateur à la liste
-      users.push(newUser);
-      secureStorage.setItem(this.USERS_KEY, JSON.stringify(users));
+        // Hasher le mot de passe pour le stockage local
+        const hashedPassword = await this.hashPassword(password);
 
-      // Ajouter une notification pour les admins
-      this.addPendingNotification(username);
+        // Créer l'utilisateur dans Firestore
+        const userData: FirestoreUserData = {
+            username,
+            role,
+            status: 'pending',
+            lastPasswordChange: Date.now(),
+            createdAt: Date.now()
+        };
+        
+        await FirestoreService.createUser(userData);
 
-      return true;
+        // Conserver la compatibilité avec le stockage local
+        const users: User[] = JSON.parse(secureStorage.getItem(this.USERS_KEY) || '[]');
+        const newUser: User = {
+            username,
+            password: hashedPassword,
+            role,
+            status: 'pending',
+            lastPasswordChange: Date.now(),
+            createdAt: Date.now(),
+        };
+        users.push(newUser);
+        secureStorage.setItem(this.USERS_KEY, JSON.stringify(users));
+
+        // Ajouter une notification pour les admins
+        this.addPendingNotification(username);
+
+        return true;
     } catch (error) {
-      console.error('Erreur lors de la création du compte:', error);
-      return false;
+        console.error('Erreur lors de la création du compte:', error);
+        return false;
     }
-  }
+}
 
   private static addPendingNotification(username: string) {
     const notifications = this.getPendingNotifications();
@@ -129,79 +163,67 @@ export class AuthService {
 
   static async login(username: string, password: string): Promise<UserInfo> {
     try {
-      if (SessionManager.isAccountLocked()) {
-        const remainingTime = Math.ceil(SessionManager.getRemainingLockTime() / 1000 / 60);
-        const error = new Error(`Compte temporairement verrouillé. Réessayez dans ${remainingTime} minutes.`) as AuthError;
-        error.code = 'ACCOUNT_LOCKED';
-        throw error;
-      }
+        if (SessionManager.isAccountLocked()) {
+            const remainingTime = Math.ceil(SessionManager.getRemainingLockTime() / 1000 / 60);
+            const error = new Error(`Compte temporairement verrouillé. Réessayez dans ${remainingTime} minutes.`) as AuthError;
+            error.code = 'ACCOUNT_LOCKED';
+            throw error;
+        }
 
-      console.log('Checking stored users...');
-      const users: User[] = JSON.parse(secureStorage.getItem(this.USERS_KEY) || '[]');
-      console.log('Stored users:', users);
-      
-      console.log('Looking for user:', username);
-      const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
-      console.log('Found user:', user);
+        // Firebase Auth login
+        const email = `${username}@planning-equipe.com`;
+        await signInWithEmailAndPassword(auth, email, password);
 
-      if (!user) {
-        SessionManager.recordLoginAttempt(false);
-        const error = new Error('Identifiants invalides') as AuthError;
-        error.code = 'INVALID_CREDENTIALS';
-        throw error;
-      }
+        // Récupérer les données utilisateur depuis Firestore
+        const firestoreUser = await FirestoreService.getUser(username) as FirestoreUserData;
+        if (!firestoreUser) {
+            SessionManager.recordLoginAttempt(false);
+            const error = new Error('Compte non trouvé') as AuthError;
+            error.code = 'INVALID_CREDENTIALS';
+            throw error;
+        }
 
-      console.log('Hashing input password...');
-      const hashedInputPassword = await this.hashPassword(password);
-      console.log('Hashed input password:', hashedInputPassword);
-      console.log('Stored password:', user.password);
-      
-      if (user.password !== hashedInputPassword) {
-        SessionManager.recordLoginAttempt(false);
-        const error = new Error('Identifiants invalides') as AuthError;
-        error.code = 'INVALID_CREDENTIALS';
-        throw error;
-      }
+        // Vérifications de statut
+        if (firestoreUser.status === 'pending') {
+            const error = new Error('Votre compte est en attente de validation par un administrateur.') as AuthError;
+            error.code = 'ACCOUNT_PENDING';
+            throw error;
+        }
 
-      if (user.status === 'pending') {
-        const error = new Error('Votre compte est en attente de validation par un administrateur.') as AuthError;
-        error.code = 'ACCOUNT_PENDING';
-        throw error;
-      }
+        if (firestoreUser.status === 'rejected') {
+            const error = new Error('Votre compte a été rejeté par un administrateur.') as AuthError;
+            error.code = 'ACCOUNT_REJECTED';
+            throw error;
+        }
 
-      if (user.status === 'rejected') {
-        const error = new Error('Votre compte a été rejeté par un administrateur.') as AuthError;
-        error.code = 'ACCOUNT_REJECTED';
-        throw error;
-      }
+        if (this.isPasswordExpired(firestoreUser)) {
+            const error = new Error('Votre mot de passe a expiré. Veuillez le changer.') as AuthError;
+            error.code = 'PASSWORD_EXPIRED';
+            throw error;
+        }
 
-      if (this.isPasswordExpired(user)) {
-        const error = new Error('Votre mot de passe a expiré. Veuillez le changer.') as AuthError;
-        error.code = 'PASSWORD_EXPIRED';
-        throw error;
-      }
+        // Créer l'objet UserInfo
+        const userInfo: UserInfo = {
+            id: firestoreUser.username,
+            username: firestoreUser.username,
+            role: firestoreUser.role,
+            status: firestoreUser.status,
+            email: `${firestoreUser.username}@planning-equipe.com`,
+            lastPasswordChange: new Date(firestoreUser.lastPasswordChange)
+        };
 
-      // Convert to UserInfo type
-      const userInfo: UserInfo = {
-        id: user.username, // Using username as id for now
-        username: user.username,
-        role: user.role,
-        status: user.status,
-        email: `${user.username}@example.com`, // You might want to update this with actual email logic
-        lastPasswordChange: new Date(user.lastPasswordChange)
-      };
+        // Stocker l'utilisateur courant
+        secureStorage.setItem(this.CURRENT_USER_KEY, JSON.stringify(userInfo));
 
-      // Store current user
-      secureStorage.setItem(this.CURRENT_USER_KEY, JSON.stringify(userInfo));
+        SessionManager.recordLoginAttempt(true);
+        SessionManager.updateActivity();
+        return userInfo;
 
-      SessionManager.recordLoginAttempt(true);
-      SessionManager.updateActivity();
-      return userInfo;
     } catch (error) {
-      console.error('Erreur lors de la connexion:', error);
-      throw error;
+        console.error('Erreur lors de la connexion:', error);
+        throw error;
     }
-  }
+}
 
   static getCurrentUser(): UserInfo | null {
     const storedUser = secureStorage.getItem(this.CURRENT_USER_KEY);
@@ -233,16 +255,82 @@ export class AuthService {
       .map(({ username, createdAt }) => ({ username, createdAt }));
   }
 
-  static logout() {
-    secureStorage.removeItem(this.CURRENT_USER_KEY);
-    SessionManager.clearSession();
-  }
+  static async logout() {
+    try {
+        // Déconnexion Firebase Auth
+        await signOut(auth);
+
+        // Nettoyage du stockage local et de la session
+        secureStorage.removeItem(this.CURRENT_USER_KEY);
+        SessionManager.clearSession();
+        
+        // Vous pouvez ajouter ici d'autres nettoyages si nécessaire
+        
+    } catch (error) {
+        console.error('Erreur lors de la déconnexion:', error);
+        // Même en cas d'erreur Firebase, on nettoie le stockage local
+        secureStorage.removeItem(this.CURRENT_USER_KEY);
+        SessionManager.clearSession();
+    }
+}
 
   static isAuthenticated(): boolean {
     return !!this.getCurrentUser();
   }
 
-  private static isPasswordExpired(user: User): boolean {
+  private static async migrateDefaultUsers() {
+    try {
+      // Migrer l'utilisateur admin par défaut
+      try {
+        const email = 'admin@planning-equipe.com';
+        await createUserWithEmailAndPassword(auth, email, 'admin123');
+        await FirestoreService.createUser({
+          username: 'admin',
+          role: 'admin',
+          status: 'active',
+          lastPasswordChange: Date.now(),
+          createdAt: Date.now()
+        });
+      } catch (error: any) {
+        if (error.code === 'auth/email-already-in-use') {
+          console.error('Erreur migration admin:', error);
+        }
+      }
+      // Migrer l'utilisateur lionel
+      try {
+        const email = 'lionel@planning-equipe.com';
+        await createUserWithEmailAndPassword(auth, email, 'lionel123');
+        await FirestoreService.createUser({
+          username: 'lionel',
+          role: 'admin',
+          status: 'active',
+          lastPasswordChange: Date.now(),
+          createdAt: Date.now()
+        });
+      } catch (error: any) {
+        if (error.code !== 'auth/email-already-in-use') {
+          console.error('Erreur migration lionel:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors de la migration des utilisateurs:', error);
+    }
+  }
+
+  private static async migrateUserToFirebase(username: string, password: string) {
+    try {
+        const email = `${username}@planning-equipe.com`;
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        return userCredential.user;
+    } catch (error: any) {
+        if (error.code === 'auth/email-already-in-use') {
+            return null;
+        }
+        throw error;
+    }
+  }
+
+  private static isPasswordExpired(user: User | FirestoreUserData): boolean {
     if (!user.lastPasswordChange) return true;
     
     const now = Date.now();
@@ -293,16 +381,39 @@ export class AuthService {
     }
   }
 
-  static getAllUsers(): UserInfo[] {
-    const users: User[] = JSON.parse(secureStorage.getItem(this.USERS_KEY) || '[]');
-    return users.map(user => ({
-      id: user.username,
-      username: user.username,
-      role: user.role,
-      status: user.status === 'rejected' ? 'inactive' : user.status,
-      email: `${user.username}@example.com`, // You might want to update this with actual email logic
-      lastPasswordChange: new Date(user.lastPasswordChange)
-    }));
+  static async resetPassword(email: string): Promise<boolean> {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de la réinitialisation de mot de passe:', error);
+      return false;
+    }    
+  }
+
+  static async getAllUsers(): Promise<UserInfo[]> {
+    try {
+      // Obtenir tous les utilisateurs depuis Firestore
+      const usersCollection = collection(db, 'users');
+      const querySnapshot = await getDocs(usersCollection);
+
+      const users: UserInfo[] =  querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: data.username,
+          username: data.username,
+          role: data.role,
+          status: data.status === 'rejected' ? 'inactive' : data.status,
+          email: `${data.username}@planning-equipe.com`,
+          lastPasswordChange: new Date(data.lastPasswordChange)
+        };
+      });
+
+      return users;
+    } catch (error) {
+        console.error('Erreur lors de la récupération des utilisateurs:', error);
+      return []; // Retourne un tableau vide en cas d'erreur
+    }
   }
 
   static async deleteUser(username: string): Promise<boolean> {
@@ -325,28 +436,36 @@ export class AuthService {
 
   static async updateUserStatus(username: string, status: 'active' | 'rejected'): Promise<boolean> {
     try {
-      const users: User[] = JSON.parse(secureStorage.getItem(this.USERS_KEY) || '[]');
-      const userIndex = users.findIndex(u => u.username === username);
-      
-      if (userIndex === -1) return false;
+        // Ne pas permettre la modification des comptes admin par défaut
+        if (['admin', 'lionel'].includes(username)) {
+            return false;
+        }
 
-      // Ne pas permettre la modification des comptes admin par défaut
-      if (['admin', 'lionel'].includes(username)) {
-        return false;
-      }
+        // Mettre à jour dans Firestore
+        const success = await FirestoreService.updateUserStatus(username, status);
+        if (!success) {
+            return false;
+        }
 
-      users[userIndex].status = status;
-      secureStorage.setItem(this.USERS_KEY, JSON.stringify(users));
-      
-      if (status === 'active') {
-        this.clearNotification(username);
-      }
-      return true;
+        // Maintenir la cohérence avec le stockage local
+        const users: User[] = JSON.parse(secureStorage.getItem(this.USERS_KEY) || '[]');
+        const userIndex = users.findIndex(u => u.username === username);
+        
+        if (userIndex === -1) return false;
+
+        users[userIndex].status = status;
+        secureStorage.setItem(this.USERS_KEY, JSON.stringify(users));
+        
+        if (status === 'active') {
+            this.clearNotification(username);
+        }
+        
+        return true;
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du statut:', error);
-      return false;
+        console.error('Erreur lors de la mise à jour du statut:', error);
+        return false;
     }
-  }
+}
 
   static resetAuth() {
     console.log('Réinitialisation de l\'authentification...');

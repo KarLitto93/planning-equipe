@@ -12,8 +12,8 @@ export const UserManagement: React.FC = () => {
     loadUsers();
   }, []);
 
-  const loadUsers = () => {
-    const allUsers = AuthService.getAllUsers();
+  const loadUsers = async() => {
+    const allUsers = await AuthService.getAllUsers();
     setUsers(allUsers);
   };
 
@@ -90,7 +90,7 @@ export const UserManagement: React.FC = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {users.map((user) => (
+            {users?.map((user) => (
               <tr key={user.username}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">

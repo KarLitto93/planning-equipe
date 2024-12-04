@@ -24,9 +24,20 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const handleReset = () => {
-    AuthService.resetAuth();
-    setError('Authentification réinitialisée. Utilisez admin/admin123 pour vous connecter.');
+  const handleReset = async () => {
+    try {
+      const email = prompt('Veuillez entrer votre adresse email pour réinitialiser votre mot de passe:');
+      if (!email) return;
+      
+      const success = await AuthService.resetPassword(email);
+      if (success) {
+        setError('Un email de réinitialisation de mot de passe vous a été envoyé.');
+      } else {
+        setError('Erreur lors de la réinitialisation du mot de passe.');
+      }
+    } catch (err) {
+      setError('Erreur lors de la réinitialisation du mot de passe.');
+    }
   };
 
   if (showRegister) {
