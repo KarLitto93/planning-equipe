@@ -1,18 +1,22 @@
 import { secureStorage } from './secureStorage';
 import { SessionManager } from './sessionManager';
 import { UserInfo } from '../types';
+/* Commentez ces imports Firebase
 import { 
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
+  reauthenticateWithCredential,
+  updatePassword,
+  EmailAuthProvider
 } from 'firebase/auth';
 import { auth } from '../firebase';
 import { FirestoreService } from './firestoreService';
 import { Firestore } from '@firebase/firestore';
 import { collection, getDocs, doc, getDoc, setDoc, updateDoc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
-
+*/
 interface FirestoreUserData {
   username: string;
   role: 'admin' | 'user';
@@ -68,15 +72,39 @@ export class AuthService {
   
   static async initialize() {
     console.log('Initializing AuthService...');
+    // desactiver la migration
+    /*
     await this.migrateDefaultUsers();
+    */
     // Initialiser les utilisateurs par défaut s'ils n'existent pas
     const existingUsers = secureStorage.getItem(this.USERS_KEY);
     console.log('Existing users:', existingUsers);
     
     if (!existingUsers || !Array.isArray(existingUsers) || existingUsers.length === 0) {
       console.log('No valid users found, initializing with default users...');
-      secureStorage.setItem(this.USERS_KEY, JSON.stringify(DEFAULT_USERS));
-      console.log('Default users initialized:', DEFAULT_USERS);
+
+      // Créer les utilisateurs par défaut avec le nouveaux hashages
+      const admin = {
+        username: 'admin',
+        password: await this.hashPassword('admin123'),
+        role: 'admin'as const,
+        lastPasswordChange: Date.now(),
+        status: 'active',
+        createdAt: Date.now()
+      };
+
+      const lionel = {
+        username: 'lionel',
+        password: await this.hashPassword('lionel123'),
+        role: 'admin'as const,
+        lastPasswordChange: Date.now(),
+        status: 'active',
+        createdAt: Date.now()
+      };
+
+      secureStorage.setItem(this.USERS_KEY, JSON.stringify([admin, lionel]));
+      console.log('Default users initialized with new password hashes');
+
     } else {
       // Vérifier que les utilisateurs existants ont tous les champs requis
       const hasInvalidUsers = existingUsers.some(user => 
@@ -94,6 +122,7 @@ export class AuthService {
 
   static async register(username: string, password: string, role: 'admin' | 'user'): Promise<boolean> {
     try {
+        /* Désactivé temporairement - Firebase/Firestore
         // Vérifier si l'utilisateur existe dans Firestore
         const existingUser = await FirestoreService.getUser(username);
         if (existingUser) {
@@ -103,9 +132,6 @@ export class AuthService {
         // Créer l'utilisateur dans Firebase Auth
         const email = `${username}@planning-equipe.com`;
         await createUserWithEmailAndPassword(auth, email, password);
-
-        // Hasher le mot de passe pour le stockage local
-        const hashedPassword = await this.hashPassword(password);
 
         // Créer l'utilisateur dans Firestore
         const userData: FirestoreUserData = {
@@ -117,9 +143,16 @@ export class AuthService {
         };
         
         await FirestoreService.createUser(userData);
+        */
 
-        // Conserver la compatibilité avec le stockage local
+        // Version locale active
         const users: User[] = JSON.parse(secureStorage.getItem(this.USERS_KEY) || '[]');
+        if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+            return false;
+        }
+
+        const hashedPassword = await this.hashPassword(password);
+        
         const newUser: User = {
             username,
             password: hashedPassword,
@@ -128,10 +161,9 @@ export class AuthService {
             lastPasswordChange: Date.now(),
             createdAt: Date.now(),
         };
+
         users.push(newUser);
         secureStorage.setItem(this.USERS_KEY, JSON.stringify(users));
-
-        // Ajouter une notification pour les admins
         this.addPendingNotification(username);
 
         return true;
@@ -161,6 +193,7 @@ export class AuthService {
     secureStorage.setItem(this.PENDING_NOTIFICATIONS_KEY, JSON.stringify(updatedNotifications));
   }
 
+
   static async login(username: string, password: string): Promise<UserInfo> {
     try {
         if (SessionManager.isAccountLocked()) {
@@ -170,6 +203,7 @@ export class AuthService {
             throw error;
         }
 
+        /* Désactivé temporairement - Firebase/Firestore
         // Firebase Auth login
         const email = `${username}@planning-equipe.com`;
         await signInWithEmailAndPassword(auth, email, password);
@@ -183,7 +217,7 @@ export class AuthService {
             throw error;
         }
 
-        // Vérifications de statut
+        // Vérifications de statut avec Firestore
         if (firestoreUser.status === 'pending') {
             const error = new Error('Votre compte est en attente de validation par un administrateur.') as AuthError;
             error.code = 'ACCOUNT_PENDING';
@@ -201,20 +235,60 @@ export class AuthService {
             error.code = 'PASSWORD_EXPIRED';
             throw error;
         }
+        */
 
-        // Créer l'objet UserInfo
+        // Version locale active
+        console.log('Checking stored users...');
+        const users: User[] = JSON.parse(secureStorage.getItem(this.USERS_KEY) || '[]');
+        console.log('Stored users:', users);
+        
+        console.log('Looking for user:', username);
+        const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+        console.log('Found user:', user);
+
+        if (!user) {
+            SessionManager.recordLoginAttempt(false);
+            const error = new Error('Identifiants invalides') as AuthError;
+            error.code = 'INVALID_CREDENTIALS';
+            throw error;
+        }
+
+        const hashedInputPassword = await this.hashPassword(password);
+        if (user.password !== hashedInputPassword) {
+            SessionManager.recordLoginAttempt(false);
+            const error = new Error('Identifiants invalides') as AuthError;
+            error.code = 'INVALID_CREDENTIALS';
+            throw error;
+        }
+
+        if (user.status === 'pending') {
+            const error = new Error('Votre compte est en attente de validation par un administrateur.') as AuthError;
+            error.code = 'ACCOUNT_PENDING';
+            throw error;
+        }
+
+        if (user.status === 'rejected') {
+            const error = new Error('Votre compte a été rejeté par un administrateur.') as AuthError;
+            error.code = 'ACCOUNT_REJECTED';
+            throw error;
+        }
+
+        if (this.isPasswordExpired(user)) {
+            const error = new Error('Votre mot de passe a expiré. Veuillez le changer.') as AuthError;
+            error.code = 'PASSWORD_EXPIRED';
+            throw error;
+        }
+
         const userInfo: UserInfo = {
-            id: firestoreUser.username,
-            username: firestoreUser.username,
-            role: firestoreUser.role,
-            status: firestoreUser.status,
-            email: `${firestoreUser.username}@planning-equipe.com`,
-            lastPasswordChange: new Date(firestoreUser.lastPasswordChange)
+            id: user.username,
+            username: user.username,
+            role: user.role,
+            status: user.status,
+            email: `${user.username}@example.com`,
+            lastPasswordChange: new Date(user.lastPasswordChange)
         };
 
-        // Stocker l'utilisateur courant
         secureStorage.setItem(this.CURRENT_USER_KEY, JSON.stringify(userInfo));
-
         SessionManager.recordLoginAttempt(true);
         SessionManager.updateActivity();
         return userInfo;
@@ -257,9 +331,12 @@ export class AuthService {
 
   static async logout() {
     try {
+        /* Désactivé temporairement - Firebase/Firestore
         // Déconnexion Firebase Auth
         await signOut(auth);
+        */
 
+        // Version locale active
         // Nettoyage du stockage local et de la session
         secureStorage.removeItem(this.CURRENT_USER_KEY);
         SessionManager.clearSession();
@@ -268,7 +345,7 @@ export class AuthService {
         
     } catch (error) {
         console.error('Erreur lors de la déconnexion:', error);
-        // Même en cas d'erreur Firebase, on nettoie le stockage local
+        // Même en cas d'erreur, on nettoie le stockage local
         secureStorage.removeItem(this.CURRENT_USER_KEY);
         SessionManager.clearSession();
     }
@@ -279,44 +356,47 @@ export class AuthService {
   }
 
   private static async migrateDefaultUsers() {
+    /* Désactivé temporairement - Firebase/Firestore
     try {
-      // Migrer l'utilisateur admin par défaut
-      try {
-        const email = 'admin@planning-equipe.com';
-        await createUserWithEmailAndPassword(auth, email, 'admin123');
-        await FirestoreService.createUser({
-          username: 'admin',
-          role: 'admin',
-          status: 'active',
-          lastPasswordChange: Date.now(),
-          createdAt: Date.now()
-        });
-      } catch (error: any) {
-        if (error.code === 'auth/email-already-in-use') {
-          console.error('Erreur migration admin:', error);
+        // Migrer l'utilisateur admin par défaut
+        try {
+            const email = 'admin@planning-equipe.com';
+            await createUserWithEmailAndPassword(auth, email, 'admin123');
+            await FirestoreService.createUser({
+                username: 'admin',
+                role: 'admin',
+                status: 'active',
+                lastPasswordChange: Date.now(),
+                createdAt: Date.now()
+            });
+        } catch (error: any) {
+            if (error.code === 'auth/email-already-in-use') {
+                console.error('Erreur migration admin:', error);
+            }
         }
-      }
-      // Migrer l'utilisateur lionel
-      try {
-        const email = 'lionel@planning-equipe.com';
-        await createUserWithEmailAndPassword(auth, email, 'lionel123');
-        await FirestoreService.createUser({
-          username: 'lionel',
-          role: 'admin',
-          status: 'active',
-          lastPasswordChange: Date.now(),
-          createdAt: Date.now()
-        });
-      } catch (error: any) {
-        if (error.code !== 'auth/email-already-in-use') {
-          console.error('Erreur migration lionel:', error);
+        // Migrer l'utilisateur lionel
+        try {
+            const email = 'lionel@planning-equipe.com';
+            await createUserWithEmailAndPassword(auth, email, 'lionel123');
+            await FirestoreService.createUser({
+                username: 'lionel',
+                role: 'admin',
+                status: 'active',
+                lastPasswordChange: Date.now(),
+                createdAt: Date.now()
+            });
+        } catch (error: any) {
+            if (error.code !== 'auth/email-already-in-use') {
+                console.error('Erreur migration lionel:', error);
+            }
         }
-      }
     } catch (error) {
-      console.error('Erreur lors de la migration des utilisateurs:', error);
+        console.error('Erreur lors de la migration des utilisateurs:', error);
     }
-  }
+    */
+}
 
+/* Désactivé temporairement - Firebase/Firestore
   private static async migrateUserToFirebase(username: string, password: string) {
     try {
         const email = `${username}@planning-equipe.com`;
@@ -329,6 +409,7 @@ export class AuthService {
         throw error;
     }
   }
+*/
 
   private static isPasswordExpired(user: User | FirestoreUserData): boolean {
     if (!user.lastPasswordChange) return true;
@@ -339,6 +420,7 @@ export class AuthService {
   }
 
   static async hashPassword(password: string): Promise<string> {
+    /* Désactivé temporairement - Crypto API
     try {
       // Check if crypto.subtle is available
       if (window.crypto && window.crypto.subtle) {
@@ -355,66 +437,151 @@ export class AuthService {
       throw error;
     }
   }
+    */
+
+    // Version simplifiée pour le développement local
+    try {
+      let hash = 0;
+      for (let i = 0; i < password.length; i++) {
+          const char = password.charCodeAt(i);
+          hash = ((hash << 5) - hash) + char;
+          hash = hash & hash; // Convert to 32bit integer
+        }
+        // Convertir en hexadécimal et s'assurer qu'il a la même longueur que le hash SHA-256
+        const hashHex = Math.abs(hash).toString(16).padStart(64, '0');
+        return hashHex;
+      } catch (error) {
+        console.error('Error hashing password:', error);
+        throw error;
+      }
+    }
 
   static async changePassword(username: string, oldPassword: string, newPassword: string): Promise<boolean> {
     try {
-      const hashedOldPassword = await this.hashPassword(oldPassword);
-      const hashedNewPassword = await this.hashPassword(newPassword);
-      
-      const users: User[] = JSON.parse(secureStorage.getItem(this.USERS_KEY) || '[]');
-      const userIndex = users.findIndex(u => 
-        u.username === username && 
-        u.password === hashedOldPassword
-      );
+        /* Désactivé temporairement - Firebase/Firestore
+        // Récupérer l'utilisateur Firebase actuel
+        const currentUser = auth.currentUser;
+        if (!currentUser?.email) {
+            throw new Error('Utilisateur non connecté');
+        }
 
-      if (userIndex !== -1) {
-        users[userIndex].password = hashedNewPassword;
-        users[userIndex].lastPasswordChange = Date.now();
-        secureStorage.setItem(this.USERS_KEY, JSON.stringify(users));
-        return true;
-      }
+        // Récupérer les informations Firebase
+        const credential = EmailAuthProvider.credential(
+            currentUser.email,
+            oldPassword
+        );
 
-      return false;
+        // Réauthentifier l'utilisateur
+        await reauthenticateWithCredential(currentUser, credential);
+        await updatePassword(currentUser, newPassword);
+
+        // Mise à jour Firestore
+        await updateDoc(doc(db, 'users', username), {
+            lastPasswordChange: Date.now()
+        });
+        */
+
+        // Version locale active
+        const hashedOldPassword = await this.hashPassword(oldPassword);
+        const hashedNewPassword = await this.hashPassword(newPassword);
+        
+        const users: User[] = JSON.parse(secureStorage.getItem(this.USERS_KEY) || '[]');
+        const userIndex = users.findIndex(u => 
+            u.username === username && 
+            u.password === hashedOldPassword
+        );
+
+        if (userIndex !== -1) {
+            users[userIndex].password = hashedNewPassword;
+            users[userIndex].lastPasswordChange = Date.now();
+            secureStorage.setItem(this.USERS_KEY, JSON.stringify(users));
+            return true;
+        }
+
+        return false;
     } catch (error) {
-      console.error('Erreur lors du changement de mot de passe:', error);
-      return false;
+        console.error('Erreur lors du changement de mot de passe:', error);
+        return false;
     }
-  }
+}
 
-  static async resetPassword(email: string): Promise<boolean> {
-    try {
+static async resetDefaultPassword(){
+  try {
+    const users: User[] = JSON.parse(secureStorage.getItem(this.USERS_KEY) || '[]');
+
+    // Réinitialiser le mot de passe des utilisateurs par défaut
+    for (const user of users) {
+        if (user.username === 'admin') {
+            user.password = await this.hashPassword('admin123');
+            console.log('Mot de passe admin réinitialisé');
+        }
+        if (user.username === 'lionel') {
+            user.password = await this.hashPassword('lionel123');
+            console.log('Mot de passe lionel réinitialisé');
+        }
+    }
+
+    // Sauvegarder les modifications
+    secureStorage.setItem(this.USERS_KEY, JSON.stringify(users));
+    console.log('Mots de passe réinitialisés avec succès.');
+    return true;
+  } catch (error) {
+    console.error('Erreur lors de la réinitialisation des mots de passe:', error);
+    return false;
+  }
+}
+
+static async resetPassword(email: string): Promise<boolean> {
+  /* Désactivé temporairement - Firebase
+  try {
       await sendPasswordResetEmail(auth, email);
       return true;
-    } catch (error) {
+  } catch (error) {
       console.error('Erreur lors de la réinitialisation de mot de passe:', error);
       return false;
-    }    
   }
+  */
+  console.warn('Réinitialisation de mot de passe temporairement désactivée');
+  return false;
+}
 
   static async getAllUsers(): Promise<UserInfo[]> {
+    /* Désactivé temporairement - Firebase/Firestore
     try {
-      // Obtenir tous les utilisateurs depuis Firestore
-      const usersCollection = collection(db, 'users');
-      const querySnapshot = await getDocs(usersCollection);
+        // Obtenir tous les utilisateurs depuis Firestore
+        const usersCollection = collection(db, 'users');
+        const querySnapshot = await getDocs(usersCollection);
 
-      const users: UserInfo[] =  querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: data.username,
-          username: data.username,
-          role: data.role,
-          status: data.status === 'rejected' ? 'inactive' : data.status,
-          email: `${data.username}@planning-equipe.com`,
-          lastPasswordChange: new Date(data.lastPasswordChange)
-        };
-      });
+        const users: UserInfo[] = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: data.username,
+                username: data.username,
+                role: data.role,
+                status: data.status === 'rejected' ? 'inactive' : data.status,
+                email: `${data.username}@planning-equipe.com`,
+                lastPasswordChange: new Date(data.lastPasswordChange)
+            };
+        });
 
-      return users;
+        return users;
     } catch (error) {
         console.error('Erreur lors de la récupération des utilisateurs:', error);
-      return []; // Retourne un tableau vide en cas d'erreur
+        return [];
     }
-  }
+    */
+
+    // Version locale active
+    const users: User[] = JSON.parse(secureStorage.getItem(this.USERS_KEY) || '[]');
+    return users.map(user => ({
+        id: user.username,
+        username: user.username,
+        role: user.role,
+        status: user.status === 'rejected' ? 'inactive' : user.status,
+        email: `${user.username}@example.com`,
+        lastPasswordChange: new Date(user.lastPasswordChange)
+    }));
+}
 
   static async deleteUser(username: string): Promise<boolean> {
     try {
@@ -441,11 +608,13 @@ export class AuthService {
             return false;
         }
 
+        /* Désactivé temporairement - Firebase/Firestore
         // Mettre à jour dans Firestore
         const success = await FirestoreService.updateUserStatus(username, status);
         if (!success) {
             return false;
         }
+        */
 
         // Maintenir la cohérence avec le stockage local
         const users: User[] = JSON.parse(secureStorage.getItem(this.USERS_KEY) || '[]');
