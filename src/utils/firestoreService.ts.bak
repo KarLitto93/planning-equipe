@@ -1,4 +1,6 @@
-import { db } from '../firebase';
+
+/* Désactivé temporairement - Firestore Service
+import { db } from '../firebase.ts.bak';
 import { 
     collection, 
     doc, 
@@ -75,4 +77,13 @@ export class FirestoreService {
             return [];
         }
     }
+}
+*/
+
+// Export une classe vide pour maintenir la compatibilité avec les imports existants
+export class FirestoreService {
+    static async createUser() { return true; }
+    static async getUser() { return null; }
+    static async updateUserStatus() { return true; }
+    static async getPendingUsers() { return []; }
 }

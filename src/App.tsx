@@ -101,7 +101,7 @@ function App() {
                   onVacationChange={setVacations}
                 />
               </div>
-              <div className="neon-card p-4 rounded-lg">
+              <div className="neon-card p-4 rounded-lg mt-6">
                 <DataManager
                   vacations={vacations}
                   onVacationsImport={setVacations}
