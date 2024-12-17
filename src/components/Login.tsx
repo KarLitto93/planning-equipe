@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AuthService } from '../utils/authService';
+import { AuthService } from '../services/AuthService';
 import { Register } from './Register';
 import { UserInfo } from '../types';
 import '../styles/neon.css';
