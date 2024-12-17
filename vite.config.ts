@@ -29,15 +29,22 @@ export default defineConfig({
     postcss: './postcss.config.js'
   },
   build: {
+    target: 'esnext',
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true
+      }
+    },
     rollupOptions: {
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom'],
-          'mui-vendor': ['@mui/material', '@mui/x-date-pickers', '@emotion/styled', '@emotion/react'],
-          'utils-vendor': ['dayjs', 'lodash'],
+          'date-vendor': ['date-fns']
         }
       }
     },
-    chunkSizeWarningLimit: 1000, // Augmente la limite d'avertissement à 1000kb
+    chunkSizeWarningLimit: 1000
   }
 });
