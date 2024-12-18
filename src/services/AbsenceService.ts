@@ -1,13 +1,17 @@
-import * as crypto from 'crypto';
 import { Absence, AbsenceFilters, AbsenceType, Chef } from '../types';
 import { ScheduleService } from './ScheduleService';
 
 export class AbsenceService {
   private static absences: Absence[] = [];
 
+  // Ajout d'une méthode privée pour générer des IDs uniques
+  private static generateId(): string {
+    return Date.now().toString(36) + Math.random().toString(36).substring(2);
+  }
+
   static createAbsence(absence: Omit<Absence, 'id' | 'createdAt'>): Absence {
     const newAbsence: Absence = {
-      id: crypto.randomUUID(),
+      id: this.generateId(), // Utilisation de notre générateur d'ID
       createdAt: new Date(),
       ...absence,
     };

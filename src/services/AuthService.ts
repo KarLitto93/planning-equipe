@@ -4,6 +4,11 @@ export class AuthService {
   private static currentUser: UserInfo | null = null;
   private static listeners: ((user: UserInfo | null) => void)[] = [];
 
+  // Fonction utilitaire pour générer un ID unique
+  private static generateUID(): string {
+    return Date.now().toString(36) + Math.random().toString(36).substring(2);
+  }
+
   static initialize() {
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
@@ -33,7 +38,7 @@ export class AuthService {
       setTimeout(() => {
         if (credentials.username && credentials.password) {
           const user: UserInfo = {
-            uid: crypto.randomUUID(),
+            uid: this.generateUID(), // Utilisation de notre propre générateur d'ID
             username: credentials.username,
             displayName: credentials.username,
             role: credentials.username === 'admin' ? 'admin' : 'user',
