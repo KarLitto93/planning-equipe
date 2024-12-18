@@ -1,7 +1,7 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import { format, eachDayOfInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import type { WeekSchedule, DaySchedule } from '../types';
+import type { WeekSchedule } from '../types';
 
 export class PDFService {
   static exportScheduleToPDF(
@@ -99,50 +99,28 @@ export class PDFService {
         currentY + lineHeight,
         { align: 'center' }
       );
+      
+      // Contenu de la cellule
       doc.setFont('helvetica', 'normal');
-
-      // Plannings du jour
-      filteredSchedules.forEach((schedule, index) => {
-        const text = schedule.isRecup
-          ? `${schedule.chef} - Récup`
-          : schedule.isAbsent
-          ? `${schedule.chef} - ${schedule.vacationType || 'Congé'}`
-          : schedule.isReplacing
-          ? `${schedule.chef} - Remplace ${schedule.replacedChef}`
-          : `${schedule.chef} - ${schedule.poste}`;
-
-        // Ajuster la position Y en fonction de l'index
-        const scheduleY = currentY + lineHeight * 3 + (index * lineHeight);
+      let textY = currentY + lineHeight * 2;
+      
+      filteredSchedules.forEach(schedule => {
+        const label = schedule.isRecup ? 'Récup' :
+          schedule.isAbsent ? 'Absent' :
+          schedule.isReplacing ? `Remplaçant (${schedule.poste})` :
+          schedule.poste;
         
-        // Vérifier si le texte dépasse la largeur de la cellule
-        const textWidth = doc.getTextWidth(text);
-        if (textWidth > cellWidth - 4) {
-          // Si le texte est trop long, le couper en deux lignes
-          const words = text.split(' ');
-          let line1 = words[0];
-          let line2 = '';
-          
-          for (let i = 1; i < words.length; i++) {
-            if (doc.getTextWidth(line1 + ' ' + words[i]) < cellWidth - 4) {
-              line1 += ' ' + words[i];
-            } else {
-              line2 = words.slice(i).join(' ');
-              break;
-            }
-          }
-          
-          doc.text(line1, x + 2, scheduleY);
-          if (line2) {
-            doc.text(line2, x + 2, scheduleY + lineHeight);
-          }
-        } else {
-          doc.text(text, x + 2, scheduleY);
-        }
+        doc.text(
+          `${schedule.chef} - ${label}`,
+          x + cellWidth / 2,
+          textY,
+          { align: 'center' }
+        );
+        textY += lineHeight;
       });
-      currentY += cellHeight;
     });
 
-    // Enregistrer le PDF
+    // Sauvegarde du fichier
     const fileName = selectedChef
       ? `planning_${selectedChef.toLowerCase()}_${format(startDate, 'yyyyMMdd')}.pdf`
       : `planning_${format(startDate, 'yyyyMMdd')}.pdf`;

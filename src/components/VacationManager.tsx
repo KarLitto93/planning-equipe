@@ -76,6 +76,12 @@ export const VacationManager = memo(({
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold neon-text">Gestion des absences</h2>
+        <button
+          onClick={() => setShowForm(true)}
+          className="neon-button px-4 py-2 rounded"
+        >
+          Ajouter une absence
+        </button>
       </div>
 
       {showForm && (

@@ -18,9 +18,6 @@ import {
   MenuItem,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { fr } from 'date-fns/locale';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { AbsenceCalendar } from './AbsenceCalendar';
@@ -48,11 +45,7 @@ function TabPanel(props: TabPanelProps) {
       aria-labelledby={`absence-tab-${index}`}
       {...other}
     >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
     </div>
   );
 }
@@ -61,146 +54,178 @@ export const AbsenceDashboard: React.FC = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const [tabValue, setTabValue] = useState(0);
-  const [filters, setFilters] = useState<FilterType>({});
+  const [absences, setAbsences] = useState<Absence[]>(AbsenceService.getAllAbsences());
+  const [filters, setFilters] = useState<FilterType>({
+    startDate: null,
+    endDate: null,
+    chef: '',
+    type: '',
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedChef, setSelectedChef] = useState('');
-  const [absenceStartDate, setAbsenceStartDate] = useState<Date | null>(null);
-  const [absenceEndDate, setAbsenceEndDate] = useState<Date | null>(null);
-  const [absenceType, setAbsenceType] = useState('CONGE');
+  const [newAbsence, setNewAbsence] = useState<Partial<Absence>>({
+    chef: '',
+    startDate: null,
+    endDate: null,
+    type: '',
+  });
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
-  const handleFilterChange = (newFilters: FilterType) => {
-    setFilters(newFilters);
+  const handleFilterChange = (newFilters: Partial<FilterType>) => {
+    setFilters((prev) => ({ ...prev, ...newFilters }));
   };
 
   const handleAddAbsence = () => {
-    setDialogOpen(true);
-  };
-
-  const handleAbsenceConfirm = () => {
-    if (selectedChef && absenceStartDate && absenceEndDate && absenceType) {
-      AbsenceService.addAbsence({
-        chef: selectedChef,
-        startDate: absenceStartDate,
-        endDate: absenceEndDate,
-        type: absenceType,
-      });
+    if (
+      newAbsence.chef &&
+      newAbsence.startDate &&
+      newAbsence.endDate &&
+      newAbsence.type
+    ) {
+      AbsenceService.addAbsence(newAbsence as Required<Absence>);
+      setAbsences(AbsenceService.getAllAbsences());
       setDialogOpen(false);
-      // Réinitialiser les valeurs
-      setSelectedChef('');
-      setAbsenceStartDate(null);
-      setAbsenceEndDate(null);
-      setAbsenceType('CONGE');
+      setNewAbsence({
+        chef: '',
+        startDate: null,
+        endDate: null,
+        type: '',
+      });
     }
   };
 
-  const handleBack = () => {
-    navigate('/');
+  const handleDeleteAbsence = (id: string) => {
+    AbsenceService.deleteAbsence(id);
+    setAbsences(AbsenceService.getAllAbsences());
   };
 
+  const handleUpdateAbsence = (id: string, updates: Partial<Absence>) => {
+    AbsenceService.updateAbsence(id, updates);
+    setAbsences(AbsenceService.getAllAbsences());
+  };
+
+  const filteredAbsences = absences.filter((absence) => {
+    if (filters.chef && absence.chef !== filters.chef) return false;
+    if (filters.type && absence.type !== filters.type) return false;
+    if (filters.startDate && absence.startDate < filters.startDate) return false;
+    if (filters.endDate && absence.endDate > filters.endDate) return false;
+    return true;
+  });
+
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        mb: 3 
-      }}>
+    <Box sx={{ width: '100%', p: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Button
           variant="outlined"
           startIcon={<ArrowBackIcon />}
-          onClick={handleBack}
-          sx={{ mr: 2 }}
+          onClick={() => navigate('/')}
         >
           Retour au planning
         </Button>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          onClick={handleAddAbsence}
+          onClick={() => setDialogOpen(true)}
         >
-          Nouvelle Absence
+          Nouvelle absence
         </Button>
       </Box>
 
-      <Typography variant="h4" sx={{ mb: 3 }}>
-        Gestion des Absences
-      </Typography>
-
-      <Paper sx={{ mb: 3 }}>
-        <AbsenceFilters onFilterChange={handleFilterChange} />
-      </Paper>
-
       <Paper sx={{ width: '100%', mb: 3 }}>
-        <AbsenceStats filters={filters} />
-      </Paper>
-
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Tabs value={tabValue} onChange={handleTabChange} textColor="secondary" indicatorColor="secondary" aria-label="absence tabs">
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          indicatorColor="primary"
+          textColor="primary"
+          centered
+        >
           <Tab label="Calendrier" />
           <Tab label="Liste" />
+          <Tab label="Statistiques" />
         </Tabs>
-      </Box>
-
-      <Paper sx={{ width: '100%' }}>
-        <TabPanel value={tabValue} index={0}>
-          <AbsenceCalendar filters={filters} />
-        </TabPanel>
-        <TabPanel value={tabValue} index={1}>
-          <AbsenceList filters={filters} />
-        </TabPanel>
       </Paper>
 
+      <AbsenceFilters filters={filters} onFilterChange={handleFilterChange} />
+
+      <TabPanel value={tabValue} index={0}>
+        <AbsenceCalendar
+          absences={filteredAbsences}
+          onDeleteAbsence={handleDeleteAbsence}
+          onUpdateAbsence={handleUpdateAbsence}
+        />
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={1}>
+        <AbsenceList
+          absences={filteredAbsences}
+          onDeleteAbsence={handleDeleteAbsence}
+          onUpdateAbsence={handleUpdateAbsence}
+        />
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={2}>
+        <AbsenceStats absences={filteredAbsences} />
+      </TabPanel>
+
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
-        <DialogTitle>Ajouter une absence</DialogTitle>
+        <DialogTitle>Nouvelle absence</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
             <FormControl fullWidth>
               <InputLabel>Chef</InputLabel>
               <Select
-                value={selectedChef}
-                onChange={(e) => setSelectedChef(e.target.value)}
+                value={newAbsence.chef}
+                onChange={(e) =>
+                  setNewAbsence((prev) => ({ ...prev, chef: e.target.value }))
+                }
               >
                 {Object.values(CHEFS).map((chef) => (
-                  <MenuItem key={chef} value={chef}>{chef}</MenuItem>
+                  <MenuItem key={chef} value={chef}>
+                    {chef}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
 
+            <DatePicker
+              label="Date de début"
+              value={newAbsence.startDate}
+              onChange={(date) =>
+                setNewAbsence((prev) => ({ ...prev, startDate: date }))
+              }
+            />
+
+            <DatePicker
+              label="Date de fin"
+              value={newAbsence.endDate}
+              onChange={(date) =>
+                setNewAbsence((prev) => ({ ...prev, endDate: date }))
+              }
+              minDate={newAbsence.startDate || undefined}
+            />
+
             <FormControl fullWidth>
               <InputLabel>Type d'absence</InputLabel>
               <Select
-                value={absenceType}
-                onChange={(e) => setAbsenceType(e.target.value)}
+                value={newAbsence.type}
+                onChange={(e) =>
+                  setNewAbsence((prev) => ({ ...prev, type: e.target.value }))
+                }
               >
-                <MenuItem value="CONGE">Congé</MenuItem>
+                <MenuItem value="CP">Congés payés</MenuItem>
+                <MenuItem value="RTT">RTT</MenuItem>
                 <MenuItem value="MALADIE">Maladie</MenuItem>
                 <MenuItem value="FORMATION">Formation</MenuItem>
                 <MenuItem value="AUTRE">Autre</MenuItem>
               </Select>
             </FormControl>
-
-            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={fr}>
-              <DatePicker
-                label="Date de début"
-                value={absenceStartDate}
-                onChange={setAbsenceStartDate}
-              />
-              <DatePicker
-                label="Date de fin"
-                value={absenceEndDate}
-                onChange={setAbsenceEndDate}
-                minDate={absenceStartDate || undefined}
-              />
-            </LocalizationProvider>
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Annuler</Button>
-          <Button onClick={handleAbsenceConfirm} variant="contained" color="primary">
+          <Button onClick={handleAddAbsence} variant="contained" color="primary">
             Ajouter
           </Button>
         </DialogActions>

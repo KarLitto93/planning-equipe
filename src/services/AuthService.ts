@@ -5,7 +5,6 @@ export class AuthService {
   private static listeners: ((user: UserInfo | null) => void)[] = [];
 
   static initialize() {
-    // Simuler la récupération d'un utilisateur stocké
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
       this.currentUser = JSON.parse(storedUser);
@@ -19,7 +18,6 @@ export class AuthService {
 
   static onAuthStateChanged(callback: (user: UserInfo | null) => void) {
     this.listeners.push(callback);
-    // Retourner une fonction pour se désabonner
     return () => {
       this.listeners = this.listeners.filter(listener => listener !== callback);
     };
@@ -30,7 +28,6 @@ export class AuthService {
   }
 
   static async login(username: string, password: string): Promise<UserInfo> {
-    // Simuler une connexion réussie
     const user: UserInfo = {
       id: '1',
       username,
@@ -46,10 +43,20 @@ export class AuthService {
     return user;
   }
 
-  static logout(): Promise<void> {
+  static async logout(): Promise<void> {
     this.currentUser = null;
     localStorage.removeItem('currentUser');
     this.notifyListeners();
-    return Promise.resolve(); // Return a resolved promise
+    return Promise.resolve();
+  }
+
+  static async isAuthenticated(): Promise<boolean> {
+    return !!this.currentUser;
+  }
+
+  static async checkPermission(permission: string): Promise<boolean> {
+    if (!this.currentUser) return false;
+    if (this.currentUser.role === 'admin') return true;
+    return false;
   }
 }
