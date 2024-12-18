@@ -16,6 +16,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  SelectChangeEvent,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import AddIcon from '@mui/icons-material/Add';
@@ -26,7 +27,7 @@ import { AbsenceFilters } from './AbsenceFilters';
 import { AbsenceStats } from './AbsenceStats';
 import { AbsenceService } from '../../services/AbsenceService';
 import { CHEFS } from '../../config/constants';
-import type { Absence, AbsenceFilters as FilterType } from '../../types';
+import type { Absence, AbsenceFilters as AbsenceFiltersType } from '../../types';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -54,56 +55,65 @@ export const AbsenceDashboard: React.FC = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const [tabValue, setTabValue] = useState(0);
-  const [absences, setAbsences] = useState<Absence[]>(AbsenceService.getAllAbsences());
-  const [filters, setFilters] = useState<FilterType>({
-    startDate: null,
-    endDate: null,
-    chef: '',
-    type: '',
+  const [absences, setAbsences] = useState<Absence[]>(AbsenceService.getAbsences());
+  const [filters, setFilters] = useState<AbsenceFiltersType>({
+    startDate: undefined,
+    endDate: undefined,
+    chef: undefined,
+    type: undefined
   });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newAbsence, setNewAbsence] = useState<Partial<Absence>>({
-    chef: '',
-    startDate: null,
-    endDate: null,
-    type: '',
+    startDate: undefined,
+    endDate: undefined,
+    type: undefined,
+    chef: undefined
   });
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
-  const handleFilterChange = (newFilters: Partial<FilterType>) => {
-    setFilters((prev) => ({ ...prev, ...newFilters }));
+  const handleFilterChange = (newFilters: Partial<AbsenceFiltersType>) => {
+    setFilters(prev => ({ ...prev, ...newFilters }));
+    setAbsences(AbsenceService.getAbsences({ ...filters, ...newFilters }));
   };
 
-  const handleAddAbsence = () => {
-    if (
-      newAbsence.chef &&
-      newAbsence.startDate &&
-      newAbsence.endDate &&
-      newAbsence.type
-    ) {
-      AbsenceService.addAbsence(newAbsence as Required<Absence>);
-      setAbsences(AbsenceService.getAllAbsences());
-      setDialogOpen(false);
-      setNewAbsence({
-        chef: '',
-        startDate: null,
-        endDate: null,
-        type: '',
-      });
+  const handleAddAbsence = async () => {
+    if (newAbsence.chef && newAbsence.startDate && newAbsence.endDate && newAbsence.type) {
+      const createdAbsence = await AbsenceService.createAbsence(newAbsence as Omit<Absence, 'id' | 'createdAt'>);
+      if (createdAbsence) {
+        setAbsences(AbsenceService.getAbsences(filters));
+        setDialogOpen(false);
+        setNewAbsence({
+          startDate: undefined,
+          endDate: undefined,
+          type: undefined,
+          chef: undefined
+        });
+      }
     }
   };
 
   const handleDeleteAbsence = (id: string) => {
     AbsenceService.deleteAbsence(id);
-    setAbsences(AbsenceService.getAllAbsences());
+    setAbsences(AbsenceService.getAbsences(filters));
   };
 
   const handleUpdateAbsence = (id: string, updates: Partial<Absence>) => {
     AbsenceService.updateAbsence(id, updates);
-    setAbsences(AbsenceService.getAllAbsences());
+    setAbsences(AbsenceService.getAbsences(filters));
+  };
+
+  const handleDateChange = (date: Date | null, field: 'startDate' | 'endDate') => {
+    if (date) {
+      setNewAbsence((prev) => ({ ...prev, [field]: date }));
+    }
+  };
+
+  const handleTypeChange = (e: SelectChangeEvent<Absence['type']>) => {
+    const value = e.target.value as Absence['type'];
+    setNewAbsence((prev) => ({ ...prev, type: value }));
   };
 
   const filteredAbsences = absences.filter((absence) => {
@@ -154,6 +164,7 @@ export const AbsenceDashboard: React.FC = () => {
           absences={filteredAbsences}
           onDeleteAbsence={handleDeleteAbsence}
           onUpdateAbsence={handleUpdateAbsence}
+          filters={filters}
         />
       </TabPanel>
 
@@ -162,6 +173,7 @@ export const AbsenceDashboard: React.FC = () => {
           absences={filteredAbsences}
           onDeleteAbsence={handleDeleteAbsence}
           onUpdateAbsence={handleUpdateAbsence}
+          filters={filters}
         />
       </TabPanel>
 
@@ -178,7 +190,10 @@ export const AbsenceDashboard: React.FC = () => {
               <Select
                 value={newAbsence.chef}
                 onChange={(e) =>
-                  setNewAbsence((prev) => ({ ...prev, chef: e.target.value }))
+                  setNewAbsence((prev) => ({ 
+                    ...prev, 
+                    chef: e.target.value as typeof CHEFS[number] 
+                  }))
                 }
               >
                 {Object.values(CHEFS).map((chef) => (
@@ -192,17 +207,13 @@ export const AbsenceDashboard: React.FC = () => {
             <DatePicker
               label="Date de début"
               value={newAbsence.startDate}
-              onChange={(date) =>
-                setNewAbsence((prev) => ({ ...prev, startDate: date }))
-              }
+              onChange={(date) => handleDateChange(date, 'startDate')}
             />
 
             <DatePicker
               label="Date de fin"
               value={newAbsence.endDate}
-              onChange={(date) =>
-                setNewAbsence((prev) => ({ ...prev, endDate: date }))
-              }
+              onChange={(date) => handleDateChange(date, 'endDate')}
               minDate={newAbsence.startDate || undefined}
             />
 
@@ -210,9 +221,7 @@ export const AbsenceDashboard: React.FC = () => {
               <InputLabel>Type d'absence</InputLabel>
               <Select
                 value={newAbsence.type}
-                onChange={(e) =>
-                  setNewAbsence((prev) => ({ ...prev, type: e.target.value }))
-                }
+                onChange={handleTypeChange}
               >
                 <MenuItem value="CP">Congés payés</MenuItem>
                 <MenuItem value="RTT">RTT</MenuItem>

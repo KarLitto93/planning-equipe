@@ -1,5 +1,5 @@
 import { POSTES, CHEFS } from '../config/constants';
-import { VacationType } from './index';
+import { Absence, AbsenceType } from './index';
 
 export type Position = typeof POSTES[keyof typeof POSTES];
 export type Chef = typeof CHEFS[number];
@@ -9,7 +9,7 @@ export interface DaySchedule {
   poste: Position;
   isWeekend?: boolean;
   isRecuperation?: boolean;
-  vacation?: Vacation;
+  vacation?: Absence;
   isAbsent?: boolean;
   isReplacing?: boolean;
   replacedChef?: Chef;
@@ -23,23 +23,4 @@ export interface WeekSchedule {
   schedule: {
     [key: string]: DaySchedule[];
   };
-}
-
-export interface ScheduleState {
-  currentWeek: WeekSchedule;
-  loading: boolean;
-  error?: string;
-}
-
-export interface Vacation {
-  id: string;
-  chef: Chef;
-  startDate: Date;
-  endDate: Date;
-  type: VacationType;
-}
-
-export interface Holiday {
-  name: string;
-  date: Date;
 }

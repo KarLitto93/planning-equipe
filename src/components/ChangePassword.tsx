@@ -30,8 +30,8 @@ export const ChangePassword: React.FC<ChangePasswordProps> = ({ onClose }) => {
     }
 
     const currentUser = AuthService.getCurrentUser();
-    if (!currentUser) {
-      setError('Utilisateur non connecté');
+    if (!currentUser?.username) {
+      setError('Utilisateur non connecté ou nom d\'utilisateur manquant');
       return;
     }
 

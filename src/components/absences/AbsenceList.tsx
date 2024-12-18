@@ -20,20 +20,20 @@ import type { Absence, AbsenceFilters } from '../../types';
 
 interface Props {
   filters: AbsenceFilters;
+  absences: Absence[];
+  onDeleteAbsence: (id: string) => void;
+  onUpdateAbsence: (id: string, updates: Partial<Absence>) => void;
 }
 
-export const AbsenceList: React.FC<Props> = ({ filters }) => {
+export const AbsenceList: React.FC<Props> = ({ filters, absences, onDeleteAbsence, onUpdateAbsence }) => {
   // TODO: Récupérer les absences filtrées depuis le service
-  const absences: Absence[] = [];
 
   const handleEdit = (absence: Absence) => {
-    // TODO: Implémenter la modification
-    console.log('Edit absence:', absence);
+    onUpdateAbsence(absence.id, absence);
   };
 
   const handleDelete = (absence: Absence) => {
-    // TODO: Implémenter la suppression
-    console.log('Delete absence:', absence);
+    onDeleteAbsence(absence.id);
   };
 
   if (absences.length === 0) {
@@ -82,20 +82,12 @@ export const AbsenceList: React.FC<Props> = ({ filters }) => {
               </TableCell>
               <TableCell align="right">
                 <Tooltip title="Modifier">
-                  <IconButton
-                    onClick={() => handleEdit(absence)}
-                    size="small"
-                    color="primary"
-                  >
+                  <IconButton onClick={() => handleEdit(absence)}>
                     <EditIcon />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Supprimer">
-                  <IconButton
-                    onClick={() => handleDelete(absence)}
-                    size="small"
-                    color="error"
-                  >
+                  <IconButton onClick={() => handleDelete(absence)}>
                     <DeleteIcon />
                   </IconButton>
                 </Tooltip>

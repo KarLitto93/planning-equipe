@@ -1,9 +1,27 @@
 import React, { useState, useEffect } from 'react';
+import { UserInfo } from '../types/user';
 import { AuthService } from '../utils/authService';
-import { UserInfo } from '../types';
 
-export const UserManagement: React.FC = () => {
-  const [users, setUsers] = useState<UserInfo[]>([]);
+interface Props {
+  users: UserInfo[];
+  onDeleteUser: (username: string) => void;
+  onStatusChange: (username: string, status: UserInfo['status']) => void;
+}
+
+const getStatusBadgeClass = (status: UserInfo['status']) => {
+  switch (status) {
+    case 'active':
+      return 'bg-green-100 text-green-800';
+    case 'pending':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'rejected':
+      return 'bg-red-100 text-red-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
+export const UserManagement: React.FC<Props> = ({ users, onDeleteUser, onStatusChange }) => {
   const [showModal, setShowModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserInfo | null>(null);
   const [error, setError] = useState('');
@@ -14,10 +32,10 @@ export const UserManagement: React.FC = () => {
 
   const loadUsers = async() => {
     const allUsers = await AuthService.getAllUsers();
-    setUsers(allUsers);
+    users = allUsers;
   };
 
-  const handleStatusChange = async (username: string, status: 'active' | 'rejected') => {
+  const handleStatusChange = async (username: string, status: UserInfo['status']) => {
     const success = await AuthService.updateUserStatus(username, status);
     if (success) {
       loadUsers();
@@ -34,19 +52,6 @@ export const UserManagement: React.FC = () => {
       } else {
         setError(`Impossible de supprimer l'utilisateur ${username}`);
       }
-    }
-  };
-
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -116,7 +121,7 @@ export const UserManagement: React.FC = () => {
                     <>
                       {user.status !== 'active' && (
                         <button
-                          onClick={() => handleStatusChange(user.username, 'active')}
+                          onClick={() => onStatusChange(user.username, 'active')}
                           className="text-green-600 hover:text-green-900"
                         >
                           Activer
@@ -124,14 +129,14 @@ export const UserManagement: React.FC = () => {
                       )}
                       {user.status !== 'rejected' && (
                         <button
-                          onClick={() => handleStatusChange(user.username, 'rejected')}
+                          onClick={() => onStatusChange(user.username, 'rejected')}
                           className="text-red-600 hover:text-red-900"
                         >
                           Rejeter
                         </button>
                       )}
                       <button
-                        onClick={() => handleDeleteUser(user.username)}
+                        onClick={() => onDeleteUser(user.username)}
                         className="text-red-600 hover:text-red-900"
                       >
                         Supprimer

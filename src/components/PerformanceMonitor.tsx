@@ -20,10 +20,15 @@ export const PerformanceMonitor: React.FC = () => {
       frameCount++;
       
       if (now - lastTime >= 1000) {
+        // Add type guard for performance.memory
+        const memory = 'memory' in performance && performance.memory 
+          ? (performance.memory as any).usedJSHeapSize 
+          : 0;
+        
         setMetrics(prev => ({
           ...prev,
           fps: Math.round(frameCount * 1000 / (now - lastTime)),
-          memory: Math.round(performance?.memory?.usedJSHeapSize / 1024 / 1024) || 0,
+          memory: Math.round(memory / 1024 / 1024),
         }));
         frameCount = 0;
         lastTime = now;

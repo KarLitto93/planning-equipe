@@ -1,6 +1,7 @@
 import { ScheduleService } from '../scheduleService';
 import { CHEFS, POSTES, REFERENCE_DATE } from '../../config/constants';
 import { addWeeks, startOfWeek } from 'date-fns';
+import { DaySchedule } from '../../types/planning';
 
 describe('ScheduleService', () => {
   describe('getWeekSchedule', () => {
@@ -38,7 +39,7 @@ describe('ScheduleService', () => {
 
       // Vérifier la récupération du MAT1 le lundi
       const mat1Chef = mondaySchedules.find(
-        ds => ds.poste === POSTES.MAT1 && ds.isRecuperation
+        ds => ds.poste === POSTES.MAT1 && ds.isRecup
       );
       expect(mat1Chef).toBeTruthy();
 

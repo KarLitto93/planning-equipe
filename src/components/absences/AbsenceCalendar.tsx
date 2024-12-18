@@ -24,13 +24,16 @@ import { fr } from 'date-fns/locale';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { AbsenceService } from '../../services/AbsenceService';
-import type { AbsenceFilters } from '../../types';
+import type { Absence, AbsenceFilters } from '../../types';
 
 interface Props {
   filters: AbsenceFilters;
+  absences: Absence[];
+  onDeleteAbsence: (id: string) => void;
+  onUpdateAbsence: (id: string, updates: Partial<Absence>) => void;
 }
 
-export const AbsenceCalendar: React.FC<Props> = ({ filters }) => {
+export const AbsenceCalendar: React.FC<Props> = ({ filters, absences, onDeleteAbsence, onUpdateAbsence }) => {
   const theme = useTheme();
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -48,7 +51,6 @@ export const AbsenceCalendar: React.FC<Props> = ({ filters }) => {
   const endDate = endOfWeek(monthEnd, { locale: fr });
 
   const days = eachDayOfInterval({ start: startDate, end: endDate });
-  const absences = AbsenceService.getAbsences(filters);
 
   const getAbsenceForDate = (date: Date) => {
     return absences.find(absence =>

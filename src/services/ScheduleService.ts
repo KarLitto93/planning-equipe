@@ -336,7 +336,9 @@ export class ScheduleService {
 
     return {
       startDate,
-      schedule
+      schedule,
+      cycleNumber: 1, // TODO: Replace with actual cycle number calculation
+      weekInCycle: ((weekDiff % 20) + 20) % 20  // TODO: Replace with actual week in cycle calculation
     };
   }
 }

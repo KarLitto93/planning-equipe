@@ -23,7 +23,7 @@ export const exportToCSV = (data: ExportData): string => {
     daySchedules.forEach((schedule: DaySchedule) => {
       let status = 'Présent';
       if (schedule.isAbsent) status = 'Absent';
-      if (schedule.isRecuperation) status = 'Récupération';
+      if (schedule.isRecup) status = 'Récupération';
       if (schedule.isReplacing) status = 'Remplaçant';
 
       rows.push(
@@ -94,7 +94,7 @@ export const exportToPDF = async (data: ExportData): Promise<Blob> => {
     daySchedules.forEach((schedule) => {
       let status = 'Présent';
       if (schedule.isAbsent) status = 'Absent';
-      if (schedule.isRecuperation) status = 'Récupération';
+      if (schedule.isRecup) status = 'Récupération';
       if (schedule.isReplacing) status = 'Remplaçant';
 
       content += `

@@ -15,52 +15,51 @@ import { fr } from 'date-fns/locale';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import ClearIcon from '@mui/icons-material/Clear';
 import { CHEFS } from '../../config/constants';
-import type { AbsenceFilters as FilterType, AbsenceType } from '../../types';
+import type { AbsenceFilters as AbsenceFiltersType, AbsenceType, Chef } from '../../types';
 
 interface Props {
-  onFilterChange: (filters: FilterType) => void;
+  filters: AbsenceFiltersType;
+  onFilterChange: (newFilters: Partial<AbsenceFiltersType>) => void;
 }
 
 const absenceTypes: { value: AbsenceType; label: string }[] = [
-  { value: 'CONGE', label: 'Congé' },
-  { value: 'MALADIE', label: 'Maladie' },
-  { value: 'FORMATION', label: 'Formation' },
-  { value: 'AUTRE', label: 'Autre' },
+  { value: 'conge' as AbsenceType, label: 'Congé' },
+  { value: 'maladie' as AbsenceType, label: 'Maladie' },
+  { value: 'formation' as AbsenceType, label: 'Formation' },
+  { value: 'autre' as AbsenceType, label: 'Autre' },
 ];
 
-export const AbsenceFilters: React.FC<Props> = ({ onFilterChange }) => {
-  const [chef, setChef] = useState<string>('');
-  const [type, setType] = useState<AbsenceType | ''>('');
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
+export const AbsenceFilters: React.FC<Props> = ({ filters, onFilterChange }) => {
+  const [chef, setChef] = useState<string | undefined>(filters.chef);
+  const [type, setType] = useState<AbsenceType | undefined>(filters.type);
+  const [startDate, setStartDate] = useState<Date | null>(filters.startDate || null);
+  const [endDate, setEndDate] = useState<Date | null>(filters.endDate || null);
 
-  const handleChefChange = (event: SelectChangeEvent) => {
-    setChef(event.target.value);
-    applyFilters(event.target.value, type, startDate, endDate);
+  const handleChefChange = (event: SelectChangeEvent<string>) => {
+    const value = event.target.value;
+    const newChef = value === '' ? undefined : value;
+    setChef(newChef);
+    onFilterChange({ chef: newChef });
   };
 
-  const handleTypeChange = (event: SelectChangeEvent) => {
-    setType(event.target.value as AbsenceType);
-    applyFilters(chef, event.target.value as AbsenceType, startDate, endDate);
+  const handleTypeChange = (event: SelectChangeEvent<string>) => {
+    const value = event.target.value as AbsenceType | undefined;
+    setType(value);
+    onFilterChange({ ...filters, type: value });
   };
 
-  const applyFilters = (
-    chefValue: string,
-    typeValue: string,
-    startDateValue: Date | null,
-    endDateValue: Date | null
-  ) => {
-    const filters: FilterType = {};
-    if (chefValue) filters.chef = chefValue;
-    if (typeValue) filters.type = typeValue as AbsenceType;
-    if (startDateValue) filters.startDate = startDateValue;
-    if (endDateValue) filters.endDate = endDateValue;
-    onFilterChange(filters);
+  const handleDateChange = (date: Date | null, field: 'startDate' | 'endDate') => {
+    if (field === 'startDate') {
+      setStartDate(date);
+    } else {
+      setEndDate(date);
+    }
+    onFilterChange({ ...filters, [field]: date || undefined });
   };
 
   const handleClear = () => {
-    setChef('');
-    setType('');
+    setChef(undefined);
+    setType(undefined);
     setStartDate(null);
     setEndDate(null);
     onFilterChange({});
@@ -104,19 +103,13 @@ export const AbsenceFilters: React.FC<Props> = ({ onFilterChange }) => {
         <DatePicker
           label="Date de début"
           value={startDate}
-          onChange={(date) => {
-            setStartDate(date);
-            applyFilters(chef, type, date, endDate);
-          }}
+          onChange={(date) => handleDateChange(date, 'startDate')}
           sx={{ width: 200 }}
         />
         <DatePicker
           label="Date de fin"
           value={endDate}
-          onChange={(date) => {
-            setEndDate(date);
-            applyFilters(chef, type, startDate, date);
-          }}
+          onChange={(date) => handleDateChange(date, 'endDate')}
           minDate={startDate || undefined}
           sx={{ width: 200 }}
         />
@@ -125,7 +118,7 @@ export const AbsenceFilters: React.FC<Props> = ({ onFilterChange }) => {
       <Button
         variant="outlined"
         startIcon={<FilterListIcon />}
-        onClick={() => applyFilters(chef, type, startDate, endDate)}
+        onClick={() => onFilterChange({ ...filters })}
       >
         Filtrer
       </Button>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthService } from '../utils/authService';
-import { UserInfo } from '../types';
+import { UserInfo } from '../types/user';
 import '../styles/neon.css';
 
 export const AdminDashboard: React.FC = () => {
@@ -35,7 +35,7 @@ export const AdminDashboard: React.FC = () => {
               <span className="ml-4 text-sm opacity-70">{user.role}</span>
             </div>
             <button
-              onClick={() => handleDeleteUser(user.username)}
+              onClick={() => user.username && handleDeleteUser(user.username)}
               className="neon-button-danger px-4 py-2 rounded-md text-sm"
             >
               Supprimer

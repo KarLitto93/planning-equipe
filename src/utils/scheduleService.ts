@@ -1,6 +1,6 @@
 import { startOfWeek, differenceInWeeks, isWeekend, isSaturday, isMonday, isSunday, isWithinInterval, format } from 'date-fns';
 import { CHEFS, POSTES, REFERENCE_DATE, CYCLE_WEEKS } from '../config/constants';
-import type { WeekSchedule, Chef, Position, DaySchedule, Vacation } from '../types/planning';
+import type { WeekSchedule, Chef, Position, DaySchedule, Absence } from '../types/index';
 import { secureStorage } from './secureStorage';
 
 // Définition du cycle complet de 20 semaines
@@ -28,7 +28,7 @@ const CYCLE_SCHEDULE: Record<number, Record<Chef, Position>> = {
 };
 
 export class ScheduleService {
-  static getWeekSchedule(date: Date, vacations: Vacation[] = []): WeekSchedule {
+  static getWeekSchedule(date: Date, absences: Absence[] = []): WeekSchedule {
     // Normaliser les dates pour ignorer les heures et fuseaux horaires
     const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const normalizedRef = new Date(REFERENCE_DATE.getFullYear(), REFERENCE_DATE.getMonth(), REFERENCE_DATE.getDate());
@@ -71,7 +71,7 @@ export class ScheduleService {
     });
 
     for (let i = 0; i < 7; i++) {
-      const daySchedule = this.getDaySchedule(currentDate, weekAssignments, vacations, orderedChefs);
+      const daySchedule = this.getDaySchedule(currentDate, weekAssignments, absences, orderedChefs);
       schedule[currentDate.toISOString()] = daySchedule;
       currentDate.setDate(currentDate.getDate() + 1);
     }
@@ -92,7 +92,7 @@ export class ScheduleService {
   private static getDaySchedule(
     date: Date, 
     weekAssignments: Record<Chef, Position>, 
-    vacations: Vacation[],
+    absences: Absence[],
     orderedChefs: Chef[]
   ): DaySchedule[] {
     const remplacant = this.getReplacementChef(weekAssignments);
@@ -102,7 +102,7 @@ export class ScheduleService {
     let remplacantWorkDays = 0;
     let currentDate = new Date(startOfWeekDate);
     for (let i = 0; i < 7; i++) {
-      if (!isWeekend(currentDate) || (isSaturday(currentDate) && this.hasAbsentChef(currentDate, vacations, orderedChefs))) {
+      if (!isWeekend(currentDate) || (isSaturday(currentDate) && this.hasAbsentChef(currentDate, absences, orderedChefs))) {
         remplacantWorkDays++;
       }
       currentDate.setDate(currentDate.getDate() + 1);
@@ -110,7 +110,7 @@ export class ScheduleService {
 
     // Si c'est samedi et qu'il y a un absent, vérifier si le remplaçant a déjà travaillé lundi
     const isProblematicDay = (isSaturday(date) || isMonday(date)) && 
-                            this.hasAbsentChef(date, vacations, orderedChefs) && 
+                            this.hasAbsentChef(date, absences, orderedChefs) && 
                             remplacantWorkDays > 5;
 
     // Gestion du weekend
@@ -120,22 +120,28 @@ export class ScheduleService {
       }
       
       const mat1Chef = orderedChefs.find(chef => weekAssignments[chef] === POSTES.MAT1)!;
-      const vacation = this.getVacation(mat1Chef, date, vacations);
+      const absence = this.getAbsence(mat1Chef, date, absences);
       
-      if (vacation) {
+      if (absence) {
         // Le samedi, on retourne seulement MAT1 et son remplaçant
         return [
           {
             chef: mat1Chef,
             poste: POSTES.MAT1,
-            vacation,
-            isAbsent: true
+            isAbsent: true,
+            vacationType: absence.type,
+            replacedChef: undefined,
+            isRecup: false,
+            isReplacing: false
           },
           {
             chef: remplacant,
             poste: POSTES.MAT1,
             isReplacing: true,
-            replacedChef: mat1Chef
+            replacedChef: mat1Chef,
+            isAbsent: false,
+            isRecup: false,
+            vacationType: undefined
           }
         ];
       }
@@ -159,15 +165,15 @@ export class ScheduleService {
     }
 
     const daySchedules: DaySchedule[] = [];
-    const absentChef = orderedChefs.find(chef => this.getVacation(chef, date, vacations));
+    const absentChef = orderedChefs.find(chef => this.getAbsence(chef, date, absences));
     const absentChefPosition = absentChef ? weekAssignments[absentChef] : null;
 
     for (const chef of orderedChefs) {
-      const vacation = this.getVacation(chef, date, vacations);
+      const absence = this.getAbsence(chef, date, absences);
       const saturdayDate = new Date(date.getTime() - (isMonday(date) ? 2 : 4) * 24 * 60 * 60 * 1000);
       const isRecuperationDay = 
         weekAssignments[chef] === POSTES.MAT1 && 
-        !this.getVacation(chef, saturdayDate, vacations) &&
+        !this.getAbsence(chef, saturdayDate, absences) &&
         ((chef === 'Eugène' && isEugeneRecoveryDay) || 
          (chef !== 'Eugène' && isMonday(date)));
 
@@ -196,20 +202,20 @@ export class ScheduleService {
             poste: POSTES.REMPLACANT
           });
         }
-      } else if (vacation) {
+      } else if (absence) {
         // Le chef est en congé
         daySchedules.push({
           chef,
           poste: weekAssignments[chef],
-          vacation,
-          isAbsent: true
+          isAbsent: true,
+          vacationType: absence.type
         });
       } else if (isRecuperationDay && !absentChef) {
         // Le chef en récupération
         daySchedules.push({
           chef,
           poste: weekAssignments[chef],
-          isRecuperation: true
+          isRecup: true
         });
       } else if (chef !== absentChef) {
         // Cas normal
@@ -223,20 +229,20 @@ export class ScheduleService {
     return daySchedules;
   }
 
-  private static getVacation(chef: Chef, date: Date, vacations: Vacation[]): Vacation | undefined {
-    return vacations.find(vacation => {
-      const startDate = new Date(vacation.startDate);
-      const endDate = new Date(vacation.endDate);
+  private static getAbsence(chef: Chef, date: Date, absences: Absence[]): Absence | undefined {
+    return absences.find(absence => {
+      const startDate = new Date(absence.startDate);
+      const endDate = new Date(absence.endDate);
       startDate.setHours(0, 0, 0, 0);
       endDate.setHours(23, 59, 59, 999);
       
-      return vacation.chef === chef && 
+      return absence.chef === chef && 
         isWithinInterval(date, { start: startDate, end: endDate });
     });
   }
 
-  private static hasAbsentChef(date: Date, vacations: Vacation[], chefs: Chef[]): boolean {
-    return chefs.some(chef => this.getVacation(chef, date, vacations) !== undefined);
+  private static hasAbsentChef(date: Date, absences: Absence[], chefs: Chef[]): boolean {
+    return chefs.some(chef => this.getAbsence(chef, date, absences) !== undefined);
   }
 
   private static handleEugeneWorkedSaturday(date: Date) {

@@ -64,15 +64,17 @@ const ScheduleCell: React.FC<{ schedule: DaySchedule }> = ({ schedule }) => {
   );
 };
 
-const Schedule: React.FC = () => {
+interface ScheduleProps {
+  weekSchedule: WeekSchedule;
+}
+
+const Schedule: React.FC<ScheduleProps> = ({ weekSchedule }) => {
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportStartDate, setExportStartDate] = useState<Date | null>(null);
   const [exportEndDate, setExportEndDate] = useState<Date | null>(null);
   const [selectedChefForExport, setSelectedChefForExport] = useState<string>('');
-
-  const weekSchedule = ScheduleService.getWeekSchedule(selectedDate);
 
   const handlePreviousWeek = () => {
     setSelectedDate(subWeeks(selectedDate, 1));
@@ -280,4 +282,5 @@ const Schedule: React.FC = () => {
   );
 };
 
+export { Schedule };
 export default Schedule;

@@ -1,6 +1,6 @@
 import { secureStorage } from './secureStorage';
 import { SessionManager } from './sessionManager';
-import { UserInfo } from '../types';
+import { UserInfo } from '../types/user';
 /* Commentez ces imports Firebase
 import { 
   signInWithEmailAndPassword,
@@ -280,8 +280,9 @@ export class AuthService {
         }
 
         const userInfo: UserInfo = {
-            id: user.username,
+            uid: user.username,
             username: user.username,
+            displayName: user.username,
             role: user.role,
             status: user.status,
             email: `${user.username}@example.com`,
@@ -574,11 +575,12 @@ static async resetPassword(email: string): Promise<boolean> {
     // Version locale active
     const users: User[] = JSON.parse(secureStorage.getItem(this.USERS_KEY) || '[]');
     return users.map(user => ({
-        id: user.username,
+        uid: user.username,
         username: user.username,
+        displayName: user.username,
         role: user.role,
-        status: user.status === 'rejected' ? 'inactive' : user.status,
-        email: `${user.username}@example.com`,
+        status: user.status,
+        email: `${user.username}@planning-equipe.com`,
         lastPasswordChange: new Date(user.lastPasswordChange)
     }));
 }
@@ -601,7 +603,7 @@ static async resetPassword(email: string): Promise<boolean> {
     }
   }
 
-  static async updateUserStatus(username: string, status: 'active' | 'rejected'): Promise<boolean> {
+  static async updateUserStatus(username: string, status: 'active' | 'pending' | 'rejected'): Promise<boolean> {
     try {
         // Ne pas permettre la modification des comptes admin par défaut
         if (['admin', 'lionel'].includes(username)) {
@@ -647,4 +649,4 @@ static async resetPassword(email: string): Promise<boolean> {
   }
 }
 
-export type { UserInfo } from '../types';
+export type { UserInfo } from '../types/user';

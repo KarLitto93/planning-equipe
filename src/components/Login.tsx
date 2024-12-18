@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { AuthService } from '../services/AuthService';
 import { Register } from './Register';
-import { UserInfo } from '../types';
+import { UserInfo } from '../types/user';
 import '../styles/neon.css';
 
 interface LoginProps {
   onLoginSuccess: (user: UserInfo) => void;
+  // Ajoutez la prop onLoginSuccess
 }
 
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
@@ -17,7 +18,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const user = await AuthService.login(username, password);
+      const user = await AuthService.login({ username, password });
       onLoginSuccess(user);
     } catch (err: any) {
       setError(err.message || 'Erreur de connexion');

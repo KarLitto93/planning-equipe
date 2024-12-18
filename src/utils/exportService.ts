@@ -15,7 +15,7 @@ declare module 'jspdf' {
 export class ExportService {
   static async exportToPDF(weekSchedule: WeekSchedule): Promise<void> {
     const doc = new jsPDF();
-    const { startDate, cycleNumber, weekInCycle, remplacant } = weekSchedule;
+    const { startDate, remplacant } = weekSchedule;
 
     // Titre
     doc.setFontSize(16);
@@ -23,13 +23,11 @@ export class ExportService {
     
     // Informations de la semaine
     doc.setFontSize(12);
-    doc.text(`Cycle ${cycleNumber} - Semaine ${weekInCycle}`, 14, 25);
     doc.text(
       `Semaine du ${format(startDate, 'dd MMMM yyyy', { locale: fr })}`,
-      14,
-      32
+      14, 25
     );
-    doc.text(`Remplaçant : ${remplacant}`, 14, 39);
+    doc.text(`Remplaçant : ${remplacant}`, 14, 32);
 
     // Tableau du planning
     const tableData = Object.entries(weekSchedule.schedule).map(([dateStr, daySchedules]) => {
@@ -45,7 +43,7 @@ export class ExportService {
     doc.autoTable({
       head: [['Jour', 'Équipe']],
       body: tableData,
-      startY: 45,
+      startY: 40,
       styles: { fontSize: 10 },
       theme: 'grid'
     });
@@ -54,7 +52,7 @@ export class ExportService {
   }
 
   static async exportToExcel(weekSchedule: WeekSchedule): Promise<void> {
-    const { startDate, cycleNumber, weekInCycle } = weekSchedule;
+    const { startDate } = weekSchedule;
 
     // Préparer les données pour Excel
     const data = Object.entries(weekSchedule.schedule).map(([dateStr, daySchedules]) => {

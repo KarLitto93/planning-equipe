@@ -17,6 +17,9 @@ export interface DaySchedule {
 
 export interface WeekSchedule {
   startDate: Date;
+  cycleNumber: number;
+  weekInCycle: number;
+  remplacant: Chef;
   schedule: Record<string, DaySchedule[]>;
 }
 

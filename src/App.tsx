@@ -27,7 +27,8 @@ import { WeekNavigation } from './components/WeekNavigation';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ScheduleService } from './services/ScheduleService';
 import { AuthService } from './services/AuthService';
-import type { WeekSchedule, UserInfo, Vacation } from './types';
+import type { WeekSchedule, Vacation } from './types';
+import type { UserInfo } from './types/user';
 
 const theme = createTheme({
   palette: {
@@ -73,8 +74,12 @@ function App() {
       .catch((error: Error) => console.error('Logout failed', error));
   }, []);
 
+  const handleLoginSuccess = useCallback((user: UserInfo) => {
+    setUserInfo(user);
+  }, []);
+
   if (!userInfo) {
-    return <Login />;
+    return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
   if (!weekSchedule) {

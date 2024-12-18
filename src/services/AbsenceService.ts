@@ -1,87 +1,60 @@
-import { v4 as uuidv4 } from 'uuid';
+import * as crypto from 'crypto';
+import { Absence, AbsenceFilters, AbsenceType, Chef } from '../types';
 import { ScheduleService } from './ScheduleService';
-import type { Absence, AbsenceType, AbsenceFilters } from '../types';
 
 export class AbsenceService {
-  static addAbsence(absence: Omit<Absence, 'id' | 'createdAt'>): void {
-    ScheduleService.addAbsence(absence);
+  private static absences: Absence[] = [];
+
+  static createAbsence(absence: Omit<Absence, 'id' | 'createdAt'>): Absence {
+    const newAbsence: Absence = {
+      id: crypto.randomUUID(),
+      createdAt: new Date(),
+      ...absence,
+    };
+    this.absences.push(newAbsence);
+    return newAbsence;
   }
 
   static updateAbsence(id: string, updates: Partial<Absence>): Absence | null {
-    return ScheduleService.updateAbsence(id, updates);
-  }
-
-  static deleteAbsence(id: string): boolean {
-    return ScheduleService.deleteAbsence(id);
+    const index = this.absences.findIndex(a => a.id === id);
+    if (index === -1) return null;
+    
+    this.absences[index] = { ...this.absences[index], ...updates };
+    return this.absences[index];
   }
 
   static getAbsence(id: string): Absence | null {
-    return ScheduleService.getAbsence(id);
+    return this.absences.find(a => a.id === id) || null;
   }
 
   static getAbsences(filters: AbsenceFilters = {}): Absence[] {
-    const absences = ScheduleService.getAllAbsences();
+    const { startDate, endDate, chef, type } = filters;
+    let filteredAbsences = [...this.absences];
+
+    if (chef) {
+      filteredAbsences = filteredAbsences.filter((absence: Absence) => absence.chef === chef);
+    }
+
+    if (type) {
+      filteredAbsences = filteredAbsences.filter((absence: Absence) => absence.type === type);
+    }
+
+    if (startDate) {
+      filteredAbsences = filteredAbsences.filter((absence: Absence) => absence.startDate >= startDate);
+    }
+
+    if (endDate) {
+      filteredAbsences = filteredAbsences.filter((absence: Absence) => absence.endDate <= endDate);
+    }
+
+    return filteredAbsences.sort((a: Absence, b: Absence) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  static deleteAbsence(id: string): boolean {
+    const index = this.absences.findIndex(a => a.id === id);
+    if (index === -1) return false;
     
-    let filteredAbsences = [...absences];
-
-    if (filters.chef) {
-      filteredAbsences = filteredAbsences.filter(a => a.chef === filters.chef);
-    }
-
-    if (filters.type) {
-      filteredAbsences = filteredAbsences.filter(a => a.type === filters.type);
-    }
-
-    if (filters.startDate) {
-      filteredAbsences = filteredAbsences.filter(a => a.startDate >= filters.startDate!);
-    }
-
-    if (filters.endDate) {
-      filteredAbsences = filteredAbsences.filter(a => a.endDate <= filters.endDate!);
-    }
-
-    return filteredAbsences.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  }
-
-  static getStats(filters: AbsenceFilters = {}) {
-    const absences = this.getAbsences(filters);
-    const stats = {
-      totalAbsences: absences.length,
-      conges: 0,
-      maladies: 0,
-      formations: 0,
-      autres: 0,
-      joursRestants: 25,
-      joursTotal: 25,
-    };
-
-    absences.forEach(absence => {
-      const days = Math.ceil(
-        (absence.endDate.getTime() - absence.startDate.getTime()) / (1000 * 60 * 60 * 24)
-      );
-
-      switch (absence.type) {
-        case 'CONGE':
-          stats.conges += days;
-          stats.joursRestants -= days;
-          break;
-        case 'MALADIE':
-          stats.maladies += days;
-          break;
-        case 'FORMATION':
-          stats.formations += days;
-          break;
-        case 'AUTRE':
-          stats.autres += days;
-          break;
-      }
-    });
-
-    return stats;
-  }
-
-  // Méthode pour vérifier les chevauchements
-  static checkOverlap(startDate: Date, endDate: Date, chef: string, excludeId?: string): boolean {
-    return ScheduleService.checkOverlap(startDate, endDate, chef, excludeId);
+    this.absences.splice(index, 1);
+    return true;
   }
 }

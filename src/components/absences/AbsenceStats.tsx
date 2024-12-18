@@ -7,11 +7,7 @@ import {
   Grid,
   LinearProgress,
 } from '@mui/material';
-import type { AbsenceFilters } from '../../types';
-
-interface Props {
-  filters: AbsenceFilters;
-}
+import type { Absence } from '../../types';
 
 interface StatCardProps {
   title: string;
@@ -59,7 +55,11 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, total, color }) => {
   );
 };
 
-export const AbsenceStats: React.FC<Props> = ({ filters }) => {
+interface Props {
+  absences: Absence[];
+}
+
+export const AbsenceStats: React.FC<Props> = ({ absences }) => {
   // TODO: Récupérer les statistiques depuis le service
   const stats = {
     totalAbsences: 0,

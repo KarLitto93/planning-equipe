@@ -29,17 +29,12 @@ export interface DaySchedule {
 
 export interface WeekSchedule {
   startDate: Date;
+  remplacant?: string;
+  cycleNumber: number;
+  weekInCycle: number;
   schedule: {
     [key: string]: DaySchedule[];
   };
-}
-
-export interface UserInfo {
-  uid: string;
-  email: string;
-  displayName: string;
-  username?: string;
-  role: string;
 }
 
 export type AbsenceType = 'CONGE' | 'MALADIE' | 'FORMATION' | 'AUTRE';
@@ -60,3 +55,5 @@ export interface AbsenceFilters {
   startDate?: Date;
   endDate?: Date;
 }
+
+export type { UserInfo } from './types/user';

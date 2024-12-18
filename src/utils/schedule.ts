@@ -1,8 +1,7 @@
 import { addWeeks, startOfWeek, isSameDay } from 'date-fns';
-import { Chef, Position, Vacation, Holiday } from '../types/planning';
-
+import { Chef, Poste, Absence, Holiday } from '../types';
 const CHEFS: Chef[] = ['Lionel', 'Eugène', 'Stephane', 'Philippe', 'Nassim'];
-const POSITIONS: Position[] = ['MAT1', 'MAT2', 'AM1', 'AM2', 'REMPLACANT'];
+const POSITIONS: Poste[] = ['MAT1', 'MAT2', 'AM1', 'AM2', 'REMPLACANT'];
 const REFERENCE_DATE = new Date('2024-10-14');
 const WEEKS_IN_CYCLE = 20;
 
@@ -13,7 +12,7 @@ export function calculateCycleAndWeek(currentDate: Date): { cycle: number; week:
   return { cycle, week };
 }
 
-export function getBasePosition(chef: Chef, week: number): Position {
+export function getBasePosition(chef: Chef, week: number): Poste {
   const chefIndex = CHEFS.indexOf(chef);
   const positionIndex = (chefIndex + week - 1) % POSITIONS.length;
   return POSITIONS[positionIndex];
@@ -27,12 +26,12 @@ export function getWeekDates(date: Date): Date[] {
 export function calculateDayAssignments(
   date: Date,
   week: number,
-  vacations: Vacation[],
+  absences: Absence[],
   holidays: Holiday[]
-): Record<Position, Chef> {
-  const assignments: Partial<Record<Position, Chef>> = {};
+): Record<Poste, Chef> {
+  const assignments: Partial<Record<Poste, Chef>> = {};
   const availableChefs = CHEFS.filter(
-    (chef) => !vacations.some((v) => v.chef === chef && isSameDay(date, v.startDate))
+    (chef) => !absences.some((v) => v.chef === chef && isSameDay(date, v.startDate))
   );
 
   // First, assign base positions
@@ -41,7 +40,7 @@ export function calculateDayAssignments(
     assignments[basePosition] = chef;
   });
 
-  // Handle replacements for vacations
+  // Handle replacements for absences
   const missingPositions = POSITIONS.filter((pos) => !assignments[pos]);
   const replacementChef = availableChefs.find((chef) => !Object.values(assignments).includes(chef));
 
@@ -51,13 +50,13 @@ export function calculateDayAssignments(
     });
   }
 
-  return assignments as Record<Position, Chef>;
+  return assignments as Record<Poste, Chef>;
 }
 
-export const POSITION_COLORS: Record<Position, string> = {
+export const POSITION_COLORS: Record<Poste, string> = {
   MAT1: '#bbdefb',
   MAT2: '#90caf9',
   AM1: '#fff59d',
-  AM2: '#fff176',
-  REMPLACANT: '#c8e6c9',
+  AM2: '#ffcc80',
+  REMPLACANT: '#b0bec5'
 };

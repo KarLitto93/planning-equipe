@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useReactToPrint } from 'react-to-print';
+import type { UseReactToPrintOptions } from 'react-to-print';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Schedule } from './Schedule';
@@ -9,7 +10,7 @@ import { POSTES } from '../config/constants';
 import type { WeekSchedule, DaySchedule } from '../types';
 
 interface PlanningExportProps {
-  weekSchedule: WeekSchedule;
+  weekSchedule: WeekSchedule | null; // Add null type to ensure type safety
   onClose: () => void;
 }
 
@@ -19,14 +20,17 @@ export const PlanningExport: React.FC<PlanningExportProps> = ({ weekSchedule, on
   const componentRef = useRef(null);
 
   const handlePrint = useReactToPrint({
-    content: () => componentRef.current,
-    documentTitle: 'Planning_Equipe',
-  });
+    content: () => componentRef.current ? componentRef.current : null,
+  } as UseReactToPrintOptions);
+
+  const handlePrintClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    handlePrint();
+  };
 
   const getScheduleLabel = (schedule: DaySchedule) => {
     let label = schedule.chef;
 
-    if (schedule.isRecuperation) {
+    if (schedule.isRecup !== undefined && schedule.isRecup) {
       label += ' - Récupération';
     } else if (schedule.isReplacing) {
       label += ` - ${schedule.poste}`;
@@ -50,19 +54,19 @@ export const PlanningExport: React.FC<PlanningExportProps> = ({ weekSchedule, on
     doc.text(`Période : ${startDate} - ${endDate}`, pageWidth / 2, 25, { align: 'center' });
 
     // Ajout du cycle et de la semaine
-    doc.text(`Cycle ${weekSchedule.cycleNumber} - Semaine ${weekSchedule.weekInCycle}`, pageWidth / 2, 35, { align: 'center' });
-    doc.text(`Du ${format(weekSchedule.startDate, 'dd/MM/yyyy')} au ${format(addDays(weekSchedule.startDate, 6), 'dd/MM/yyyy')}`, pageWidth / 2, 42, { align: 'center' });
+    doc.text(`Cycle ${weekSchedule?.cycleNumber} - Semaine ${weekSchedule?.weekInCycle}`, pageWidth / 2, 35, { align: 'center' });
+    doc.text(`Du ${weekSchedule?.startDate ? format(weekSchedule.startDate, 'dd/MM/yyyy') : 'N/A'} au ${weekSchedule?.startDate ? format(addDays(weekSchedule.startDate, 6), 'dd/MM/yyyy') : 'N/A'}`, pageWidth / 2, 42, { align: 'center' });
 
     let yPosition = 55;
 
     // Création du planning jour par jour
-    Object.entries(weekSchedule.schedule).forEach(([dateStr, daySchedules]) => {
+    Object.entries(weekSchedule?.schedule ?? {}).forEach(([dateStr, daySchedules]) => {
       const date = new Date(dateStr);
       const positionOrder = [POSTES.MAT1, POSTES.REMPLACANT, POSTES.MAT2, POSTES.AM1, POSTES.AM2];
       
       const sortedSchedules = [...daySchedules].sort((a, b) => {
-        const posA = a.poste;
-        const posB = b.poste;
+        const posA = a.poste as keyof typeof POSTES;
+        const posB = b.poste as keyof typeof POSTES;
         return positionOrder.indexOf(posA) - positionOrder.indexOf(posB);
       });
 
@@ -85,7 +89,7 @@ export const PlanningExport: React.FC<PlanningExportProps> = ({ weekSchedule, on
           schedule.poste,
           schedule.chef,
           schedule.isAbsent ? 'Absent' : 
-          schedule.isRecuperation ? 'Récupération' :
+          schedule.isRecup !== undefined && schedule.isRecup ? 'Récupération' :
           schedule.isReplacing ? `Remplace ${schedule.replacedChef}` : 'Présent'
         ]),
         theme: 'grid',
@@ -178,7 +182,7 @@ export const PlanningExport: React.FC<PlanningExportProps> = ({ weekSchedule, on
 
           <div className="flex gap-4">
             <button
-              onClick={handlePrint}
+              onClick={handlePrintClick}
               className="neon-button px-4 py-2 rounded-md flex-1"
             >
               Imprimer
@@ -197,7 +201,7 @@ export const PlanningExport: React.FC<PlanningExportProps> = ({ weekSchedule, on
           <div ref={componentRef}>
             <h1 className="text-2xl font-bold mb-4">Planning Équipe</h1>
             <p className="mb-4">Période : {startDate} - {endDate}</p>
-            <Schedule weekSchedule={weekSchedule} />
+            {weekSchedule && <Schedule weekSchedule={weekSchedule} />}
           </div>
         </div>
       </div>
