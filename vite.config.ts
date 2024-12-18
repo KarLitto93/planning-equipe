@@ -5,6 +5,7 @@ import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: '/planning-equipe/', // Très important pour le build
   plugins: [
     react({
       include: ["**/*.tsx", "**/*.ts"],
