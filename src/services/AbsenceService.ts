@@ -4,14 +4,14 @@ import { ScheduleService } from './ScheduleService';
 export class AbsenceService {
   private static absences: Absence[] = [];
 
-  // Ajout d'une méthode privée pour générer des IDs uniques
+  // Méthode pour générer un ID unique
   private static generateId(): string {
-    return Date.now().toString(36) + Math.random().toString(36).substring(2);
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
   static createAbsence(absence: Omit<Absence, 'id' | 'createdAt'>): Absence {
     const newAbsence: Absence = {
-      id: this.generateId(), // Utilisation de notre générateur d'ID
+      id: this.generateId(),
       createdAt: new Date(),
       ...absence,
     };
@@ -19,6 +19,7 @@ export class AbsenceService {
     return newAbsence;
   }
 
+  // Le reste de la classe reste identique
   static updateAbsence(id: string, updates: Partial<Absence>): Absence | null {
     const index = this.absences.findIndex(a => a.id === id);
     if (index === -1) return null;
