@@ -1,108 +1,284 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { format, addDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { 
+  Box, 
+  Button, 
+  Typography, 
+  Dialog, 
+  DialogTitle, 
+  DialogContent, 
+  DialogActions, 
+  FormControl, 
+  InputLabel, 
+  Select, 
+  MenuItem, 
+  Paper
+} from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import EventBusyIcon from '@mui/icons-material/EventBusy';
+import { PDFService } from '../services/PDFService';
 import type { WeekSchedule, DaySchedule } from '../types';
-import { POSTES } from '../config/constants';
-import '../styles/neon.css';
+import { POSTES, CHEFS } from '../config/constants';
 
 interface ScheduleProps {
   weekSchedule: WeekSchedule;
 }
 
-export const Schedule: React.FC<ScheduleProps> = ({ weekSchedule }) => {
-  const getScheduleClass = (schedule: DaySchedule) => {
-    if (schedule.isAbsent) return 'schedule-conge';
-    if (schedule.isRecuperation) return 'schedule-recuperation';
-    
+const ScheduleCell: React.FC<{ schedule: DaySchedule }> = ({ schedule }) => {
+  const getBorderColor = () => {
+    if (schedule.isRecup) return '#FF9800';
+    if (schedule.isAbsent) return '#FF69B4';
+    if (schedule.isReplacing) return '#4CAF50';
+
     switch (schedule.poste) {
-      case POSTES.MAT1:
-        return 'schedule-mat1';
-      case POSTES.MAT2:
-        return 'schedule-mat2';
-      case POSTES.AM1:
-        return 'schedule-am1';
-      case POSTES.AM2:
-        return 'schedule-am2';
-      case POSTES.REMPLACANT:
-        return 'schedule-remplacant';
-      default:
-        return '';
+      case POSTES.MAT1: return '#1976D2';
+      case POSTES.MAT2: return '#64B5F6';
+      case POSTES.AM1: return '#FFC107';
+      case POSTES.AM2: return '#FFE082';
+      case POSTES.REMPLACANT: return '#66BB6A';
+      default: return '#1976D2';
     }
   };
 
-  const renderDayCell = (daySchedule: DaySchedule) => {
-    const scheduleClass = getScheduleClass(daySchedule);
-    let label = daySchedule.chef;
+  const getBackgroundColor = () => 
+    schedule.isAbsent ? 'rgba(255, 105, 180, 0.1)' : 'rgba(255, 255, 255, 0.1)';
 
-    if (daySchedule.isRecuperation) {
-      label += ' - Récupération';
-    } else if (daySchedule.isReplacing) {
-      label += ` - ${daySchedule.poste}`;
-    } else if (!daySchedule.isAbsent) {
-      label += ` - ${daySchedule.poste}`;
+  const getLabel = () => {
+    if (schedule.isAbsent) return 'Absent';
+    if (schedule.isRecup) return 'Récup';
+    if (schedule.isReplacing) return `Remplaçant (${schedule.poste})`;
+    return schedule.poste;
+  };
+
+  const borderColor = getBorderColor();
+  const boxShadow = `
+    0 0 2px ${borderColor}60,
+    0 0 4px ${borderColor}40,
+    0 0 6px ${borderColor}20,
+    inset 0 0 0 2px ${borderColor}
+  `;
+
+  const hoverBoxShadow = `
+    0 0 4px ${borderColor}80,
+    0 0 8px ${borderColor}60,
+    0 0 12px ${borderColor}40,
+    inset 0 0 0 2px ${borderColor}
+  `;
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 1,
+        m: 1,
+        backgroundColor: getBackgroundColor(),
+        borderRadius: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '80px',
+        boxShadow,
+        transition: 'all 0.2s ease-in-out',
+        position: 'relative',
+        '&:hover': {
+          boxShadow: hoverBoxShadow
+        }
+      }}
+    >
+      <Typography 
+        variant="subtitle1"
+        sx={{
+          fontWeight: 'bold',
+          textAlign: 'center',
+          mb: 0.5,
+          color: borderColor,
+          textShadow: `0 0 2px ${borderColor}40`
+        }}
+      >
+        {schedule.chef}
+      </Typography>
+      <Typography 
+        variant="body2"
+        sx={{
+          textAlign: 'center',
+          color: borderColor,
+          textShadow: `0 0 2px ${borderColor}40`
+        }}
+      >
+        {getLabel()}
+      </Typography>
+    </Paper>
+  );
+};
+
+const Schedule: React.FC<ScheduleProps> = ({ weekSchedule }) => {
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [selectedChef, setSelectedChef] = useState('');
+  const [exportDate, setExportDate] = useState<Date | null>(new Date());
+  const navigate = useNavigate();
+
+  const handleAbsenceClick = () => {
+    navigate('/absences');
+  };
+
+  const handleExportClick = () => {
+    setExportDialogOpen(true);
+  };
+
+  const handleExport = async () => {
+    if (!selectedChef || !exportDate) return;
+
+    try {
+      await PDFService.exportSchedule(selectedChef, exportDate);
+      setExportDialogOpen(false);
+      setSelectedChef('');
+      setExportDate(null);
+    } catch (error) {
+      console.error('Export failed:', error);
     }
+  };
 
-    return (
-      <div className={`schedule-cell ${scheduleClass} neon-text`}>
-        {label}
-      </div>
-    );
+  const sortSchedules = (schedules: DaySchedule[]) => {
+    const positionMap: Record<string, number> = {
+      [POSTES.MAT1]: 1,
+      'RECUP': 1,
+      [POSTES.MAT2]: 2,
+      [POSTES.AM1]: 3,
+      [POSTES.AM2]: 4,
+      [POSTES.REMPLACANT]: 5,
+    };
+
+    return [...schedules].sort((a, b) => {
+      const aPosition = a.isRecup ? positionMap['RECUP'] : (positionMap[a.poste] || 999);
+      const bPosition = b.isRecup ? positionMap['RECUP'] : (positionMap[b.poste] || 999);
+
+      if (aPosition !== bPosition) {
+        return aPosition - bPosition;
+      }
+
+      if (aPosition === positionMap['RECUP']) {
+        if (a.isRecup && !b.isRecup) return 1;
+        if (!a.isRecup && b.isRecup) return -1;
+      }
+
+      if (a.isAbsent && !b.isAbsent) return 1;
+      if (!a.isAbsent && b.isAbsent) return -1;
+
+      return 0;
+    });
   };
 
   return (
-    <div className="space-y-6">
-      <div className="mb-4">
-        <h2 className="neon-text text-xl font-bold mb-2">
-          Cycle {weekSchedule.cycleNumber} - Semaine {weekSchedule.weekInCycle}
-        </h2>
-        <div className="neon-text text-sm opacity-80">
-          Du {format(weekSchedule.startDate, 'dd/MM/yyyy')} au{' '}
-          {format(addDays(weekSchedule.startDate, 6), 'dd/MM/yyyy')}
-        </div>
-      </div>
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button 
+            variant="contained" 
+            onClick={handleAbsenceClick} 
+            color="error" 
+            startIcon={<EventBusyIcon />}
+          >
+            Gérer les absences
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={handleExportClick} 
+            startIcon={<PictureAsPdfIcon />}
+          >
+            Exporter en PDF
+          </Button>
+        </Box>
+      </Box>
 
-      <div className="space-y-4">
-        {Object.entries(weekSchedule.schedule).map(([dateStr, daySchedules]) => {
-          const date = new Date(dateStr);
-          const positionOrder = [POSTES.MAT1, POSTES.REMPLACANT, POSTES.MAT2, POSTES.AM1, POSTES.AM2];
+      <Box 
+        sx={{ 
+          display: 'grid',
+          gridTemplateColumns: 'repeat(7, 1fr)',
+          gap: 2,
+          '& > *': {
+            minWidth: 0
+          }
+        }}
+      >
+        {Object.entries(weekSchedule.schedule).map(([day, daySchedules]) => {
+          const date = addDays(weekSchedule.startDate, parseInt(day));
+          const sortedSchedules = sortSchedules(daySchedules);
           
-          const sortedSchedules = [...daySchedules].sort((a, b) => {
-            const posA = a.poste;
-            const posB = b.poste;
-            return positionOrder.indexOf(posA) - positionOrder.indexOf(posB);
-          });
-
           return (
-            <div key={dateStr} className="neon-card p-4 rounded-lg">
-              <div className="neon-text font-medium mb-3">
-                {format(date, 'EEEE dd/MM', { locale: fr })}
-              </div>
-              <div className="schedule-grid">
-                {sortedSchedules.map((schedule, index) => (
-                  <div key={index} className="schedule-day">
-                    {renderDayCell(schedule)}
-                  </div>
+            <Box key={day} sx={{ textAlign: 'center' }}>
+              <Typography variant="h6" sx={{ color: 'white', mb: 1 }}>
+                {format(date, 'EEEE', { locale: fr })}
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'white', mb: 2 }}>
+                {format(date, 'dd/MM/yyyy')}
+              </Typography>
+              <Paper 
+                elevation={0}
+                sx={{ 
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderRadius: 1,
+                  p: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1
+                }}
+              >
+                {sortedSchedules.map((schedule, idx) => (
+                  <ScheduleCell key={idx} schedule={schedule} />
                 ))}
-              </div>
-            </div>
+              </Paper>
+            </Box>
           );
         })}
-      </div>
+      </Box>
 
-      <div className="neon-card p-4 rounded-lg">
-        <div className="neon-text font-medium mb-3">Légende</div>
-        <div className="schedule-grid">
-          <div className="schedule-cell schedule-mat1 neon-text">MAT1</div>
-          <div className="schedule-cell schedule-mat2 neon-text">MAT2</div>
-          <div className="schedule-cell schedule-am1 neon-text">AM1</div>
-          <div className="schedule-cell schedule-am2 neon-text">AM2</div>
-          <div className="schedule-cell schedule-remplacant neon-text">Remplaçant</div>
-        </div>
-        <div className="schedule-grid mt-3" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-          <div className="schedule-cell schedule-conge neon-text">En congé</div>
-          <div className="schedule-cell schedule-recuperation neon-text">Récupération</div>
-        </div>
-      </div>
-    </div>
+      <Dialog 
+        open={exportDialogOpen} 
+        onClose={() => setExportDialogOpen(false)}
+      >
+        <DialogTitle>Exporter le planning</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+            <FormControl fullWidth>
+              <InputLabel>Chef</InputLabel>
+              <Select
+                value={selectedChef}
+                onChange={(e) => setSelectedChef(e.target.value)}
+                label="Chef"
+              >
+                {CHEFS.map((chef) => (
+                  <MenuItem key={chef} value={chef}>
+                    {chef}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <DatePicker
+              label="Date"
+              value={exportDate}
+              onChange={(newValue) => setExportDate(newValue)}
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                },
+              }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExportDialogOpen(false)}>Annuler</Button>
+          <Button onClick={handleExport} variant="contained">
+            Exporter
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };
+
+export default Schedule;

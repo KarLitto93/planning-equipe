@@ -18,32 +18,45 @@ export interface Vacation {
 }
 
 export interface DaySchedule {
-  chef: Chef;
-  poste: Poste;
-  vacation?: Vacation;
-  needsAttention?: boolean;
-  isRecuperation?: boolean;
-  isAbsent?: boolean;
-  isReplacing?: boolean;
-  replacedChef?: Chef;
-  vacationType?: VacationType;
+  chef: string;
+  poste: string;
+  isRecup: boolean;
+  isAbsent: boolean;
+  isReplacing: boolean;
+  vacationType?: string;
+  replacedChef?: string;
 }
 
 export interface WeekSchedule {
   startDate: Date;
-  cycleNumber: number;
-  weekInCycle: number;
-  remplacant: Chef;
-  schedule: Record<string, DaySchedule[]>;
+  schedule: {
+    [key: string]: DaySchedule[];
+  };
 }
 
 export interface UserInfo {
-  id: string;
-  username: string;
-  role: 'admin' | 'user' | 'chef';
-  chef?: Chef;
+  uid: string;
   email: string;
-  lastPasswordChange?: Date;
-  status: 'active' | 'pending' | 'inactive' | 'rejected';
-  createdAt?: Date;
+  displayName: string;
+  username?: string;
+  role: string;
+}
+
+export type AbsenceType = 'CONGE' | 'MALADIE' | 'FORMATION' | 'AUTRE';
+
+export interface Absence {
+  id: string;
+  chef: string;
+  startDate: Date;
+  endDate: Date;
+  type: AbsenceType;
+  comment?: string;
+  createdAt: Date;
+}
+
+export interface AbsenceFilters {
+  chef?: string;
+  type?: AbsenceType;
+  startDate?: Date;
+  endDate?: Date;
 }

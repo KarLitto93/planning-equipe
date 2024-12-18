@@ -1,125 +1,134 @@
-import React, { useState, useEffect } from 'react';
-import { Schedule } from './components/Schedule';
-import { VacationManager } from './components/VacationManager';
-import { WeekNavigation } from './components/WeekNavigation';
-import { DataManager } from './components/DataManager';
+import React, { useState, useCallback, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { fr } from 'date-fns/locale';
+import { 
+  Box, 
+  AppBar, 
+  Toolbar, 
+  Button, 
+  Typography, 
+  Dialog, 
+  DialogContent,
+  IconButton,
+  Collapse,
+  Divider,
+  CssBaseline
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import Schedule from './components/Schedule';
 import { Login } from './components/Login';
-import { AuthService } from './utils/authService';
-import { ScheduleService } from './utils/scheduleService';
-import { ChangePassword } from './components/ChangePassword';
+import { AbsenceDashboard } from './components/absences/AbsenceDashboard';
 import { PendingUsers } from './components/PendingUsers';
-import { UserManagement } from './components/UserManagement';
+import { WeekNavigation } from './components/WeekNavigation';
 import { AdminDashboard } from './components/AdminDashboard';
-import type { Vacation, UserInfo } from './types';
-import './styles/global.css';
+import { ScheduleService } from './services/ScheduleService';
+import { AuthService } from './services/AuthService';
+import type { WeekSchedule, UserInfo, Vacation } from './types';
+
+const theme = createTheme({
+  palette: {
+    mode: 'dark',
+    primary: {
+      main: '#1976d2',
+    },
+    secondary: {
+      main: '#dc004e',
+    },
+    background: {
+      default: '#121212',
+      paper: '#1e1e1e',
+    },
+  },
+});
 
 function App() {
-  const [currentDate, setCurrentDate] = useState(new Date('2024-10-14'));
-  const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
-  const [vacations, setVacations] = useState<Vacation[]>([]);
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [weekSchedule, setWeekSchedule] = useState<WeekSchedule | null>(null);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [vacations, setVacations] = useState<Vacation[]>([]);
+  const [showUserManagement, setShowUserManagement] = useState(false);
 
   useEffect(() => {
-    AuthService.initialize();
-    const storedUser = AuthService.getCurrentUser();
-    if (storedUser) {
-      setCurrentUser(storedUser);
+    const schedule = ScheduleService.getWeekSchedule(currentDate);
+    if (schedule && Object.keys(schedule.schedule).length > 0) {
+      setWeekSchedule(schedule);
     }
+  }, [currentDate]);
+
+  useEffect(() => {
+    const unsubscribe = AuthService.onAuthStateChanged((user) => {
+      setUserInfo(user);
+    });
+    return () => unsubscribe();
   }, []);
 
-  const handleLoginSuccess = (user: UserInfo) => {
-    setCurrentUser(user);
-  };
+  const handleLogout = useCallback(() => {
+    AuthService.logout()
+      .then(() => setUserInfo(null))
+      .catch((error: Error) => console.error('Logout failed', error));
+  }, []);
 
-  const handleLogout = () => {
-    AuthService.logout();
-    setCurrentUser(null);
-  };
-
-  if (!currentUser) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
+  if (!userInfo) {
+    return <Login />;
   }
 
-  const weekSchedule = ScheduleService.getWeekSchedule(currentDate, vacations);
+  if (!weekSchedule) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Typography>Chargement...</Typography>
+      </Box>
+    );
+  }
 
   return (
-    <div className="cyberpunk-bg min-h-screen">
-      {currentUser.role === 'admin' && <PendingUsers />}
-      <div className="container mx-auto py-8 px-4">
-        <div className="flex flex-col space-y-6">
-          <header className="neon-card p-4 rounded-lg">
-            <div className="flex justify-between items-center">
-              <h1 className="neon-text text-3xl font-bold">Planning Équipe</h1>
-              <div className="flex items-center space-x-4">
-                <span className="neon-text text-sm">
-                  {currentUser.username} ({currentUser.role})
-                </span>
-                <button
-                  onClick={() => setShowChangePassword(true)}
-                  className="neon-button px-4 py-2 rounded-md text-sm"
-                >
-                  Changer le mot de passe
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="neon-button px-4 py-2 rounded-md text-sm"
-                >
-                  Déconnexion
-                </button>
-              </div>
-            </div>
-          </header>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Router>
+        <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+          <AppBar position="static">
+            <Toolbar>
+              <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                Planning Équipe
+              </Typography>
+              <Typography sx={{ mr: 2 }}>
+                {userInfo.username} ({userInfo.role})
+              </Typography>
+              <Button color="inherit" onClick={() => setShowChangePassword(true)}>
+                Changer le mot de passe
+              </Button>
+              <Button color="inherit" onClick={handleLogout}>
+                Déconnexion
+              </Button>
+            </Toolbar>
+          </AppBar>
 
-          <div className="neon-card p-4 rounded-lg">
-            <WeekNavigation
-              currentDate={currentDate}
-              onDateChange={setCurrentDate}
-            />
-          </div>
-
-          {currentUser.role === 'admin' && (
-            <>
-              <div className="mb-6">
-                <AdminDashboard />
-              </div>
-              <div className="neon-card p-4 rounded-lg">
-                <UserManagement />
-              </div>
-            </>
-          )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <div className="neon-card p-4 rounded-lg">
-                <Schedule weekSchedule={weekSchedule} />
-              </div>
-            </div>
-            <div className="space-y-6">
-              <div className="neon-card p-4 rounded-lg">
-                <VacationManager
-                  vacations={vacations}
-                  onVacationChange={setVacations}
-                />
-              </div>
-              <div className="neon-card p-4 rounded-lg mt-6">
-                <DataManager
-                  vacations={vacations}
-                  onVacationsImport={setVacations}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {showChangePassword && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="neon-card p-6 rounded-lg w-full max-w-md">
-            <ChangePassword onClose={() => setShowChangePassword(false)} />
-          </div>
-        </div>
-      )}
-    </div>
+          <Box sx={{ p: 3 }}>
+            <Routes>
+              <Route path="/" element={
+                <>
+                  <WeekNavigation
+                    currentDate={currentDate}
+                    onDateChange={setCurrentDate}
+                  />
+                  <Box sx={{ mt: 3 }}>
+                    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={fr}>
+                      <Schedule weekSchedule={weekSchedule} />
+                    </LocalizationProvider>
+                  </Box>
+                </>
+              } />
+              <Route path="/absences" element={<AbsenceDashboard />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Box>
+        </Box>
+      </Router>
+    </ThemeProvider>
   );
 }
 
